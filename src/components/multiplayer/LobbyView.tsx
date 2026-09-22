@@ -146,13 +146,15 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              if (inputCode.trim().length >= 4) onJoinRoom(inputCode.trim().toUpperCase());
+              const code = inputCode.trim() || (document.getElementById('room-input-code') as HTMLInputElement)?.value.trim() || '';
+              if (code.length >= 3) onJoinRoom(code.toUpperCase());
             }}
             className="flex gap-2"
           >
             <input
+              id="room-input-code"
               type="text"
-              maxLength={6}
+              maxLength={8}
               placeholder="Room Code (e.g. CL1234)"
               value={inputCode}
               onChange={(e) => setInputCode(e.target.value.toUpperCase())}
@@ -164,8 +166,12 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
             />
             <button
               type="submit"
-              disabled={inputCode.trim().length < 4}
-              className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-amber-600 to-orange-700 hover:from-amber-700 hover:to-orange-800 text-white font-bold text-sm shadow-md transition-all active:scale-95 disabled:opacity-40"
+              onClick={(e) => {
+                e.preventDefault();
+                const code = inputCode.trim() || (document.getElementById('room-input-code') as HTMLInputElement)?.value.trim() || '';
+                if (code.length >= 3) onJoinRoom(code.toUpperCase());
+              }}
+              className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-amber-600 to-orange-700 hover:from-amber-700 hover:to-orange-800 text-white font-bold text-sm shadow-md transition-all active:scale-95"
             >
               Join Room
             </button>
