@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120" width="100" height="120">
+  <defs>
+    <linearGradient id="tileBase" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F2ECE1"/>
+    </linearGradient>
+    <linearGradient id="tileSide" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2D6A4F"/>
+      <stop offset="100%" stop-color="#1B4332"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="3" dy="5" stdDeviation="3" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Drop Shadow & Back Layer (Jade backing) -->
+  <rect x="8" y="12" width="84" height="102" rx="10" fill="url(#tileSide)" filter="url(#shadow)"/>
+  
+  <!-- Front Ivory Face -->
+  <rect x="5" y="5" width="84" height="102" rx="10" fill="url(#tileBase)" stroke="#D4C8B8" stroke-width="2"/>
+  
+  <!-- Inner Bevel -->
+  <rect x="10" y="10" width="74" height="92" rx="6" fill="none" stroke="#EFE8DC" stroke-width="1.5"/>
+
+  <!-- Iconic Red Dragon (中) Character -->
+  <text x="47" y="70" font-family="'Noto Serif SC', serif" font-weight="900" font-size="52" fill="#B91C1C" text-anchor="middle" dominant-baseline="central">中</text>
+</svg>

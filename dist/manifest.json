@@ -1,0 +1,32 @@
+{
+  "name": "Vita Mahjong Solitaire & Multiplayer",
+  "short_name": "Vita Mahjong",
+  "description": "Senior-friendly accessible Mahjong solitaire with 500 campaign levels and real-time multiplayer.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#FAF7F2",
+  "theme_color": "#FAF7F2",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "puzzle", "board"]
+}
