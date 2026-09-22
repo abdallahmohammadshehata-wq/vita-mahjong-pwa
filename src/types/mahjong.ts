@@ -7,6 +7,8 @@ export type TileSuit =
   | 'season'    // 春 夏 秋 冬 (Any matches any season)
   | 'flower';   // 梅 蘭 竹 菊 (Any matches any flower)
 
+export type SpecialTileType = 'normal' | 'gold' | 'frozen' | 'locked' | 'key';
+
 export interface TileDefinition {
   suit: TileSuit;
   value: number; // 1-9 for numbered, 1-4 for winds/seasons/flowers, 1-3 for dragons
@@ -27,31 +29,42 @@ export interface BoardTile {
   isSelected?: boolean;
   isHinted?: boolean;
   isMatched?: boolean;
+  
+  // Storage & Complex Mechanics
+  isStored?: boolean; // Whether tile is parked in the 4-slot storage dock
+  storageSlot?: number; // Slot index: 0, 1, 2, 3
+  specialType?: SpecialTileType;
+  isFrozen?: boolean; // Must unblock neighbor to thaw
+  isLocked?: boolean; // Must clear key tile to unlock
 }
 
 export interface BoardCoordinate {
   x: number;
   y: number;
   layer: number;
+  specialType?: SpecialTileType;
 }
 
 export interface LevelLayoutTemplate {
   id: number;
   name: string;
   nameEn: string;
-  category: 'Classic' | 'Geometric' | 'Animals' | 'Structures' | 'Symbols';
+  category: 'Classic' | 'Complex' | 'Structures' | 'Mazes' | 'Pagodas';
   tileCount: number;
   coordinates: BoardCoordinate[];
+  maxLayers: number;
 }
 
 export interface MoveRecord {
+  type: 'MATCH_BOARD' | 'MOVE_TO_STORAGE' | 'MATCH_FROM_STORAGE' | 'RECALL_FROM_STORAGE';
   tile1: BoardTile;
-  tile2: BoardTile;
+  tile2?: BoardTile;
+  storedSlot?: number;
   timestamp: number;
   pointsEarned: number;
 }
 
-export type GameTheme = 'ivory' | 'sage' | 'wood' | 'dark';
+export type GameTheme = 'ivory' | 'sage' | 'wood' | 'dark' | 'jade' | 'gold';
 
 export interface LevelProgress {
   levelId: number;

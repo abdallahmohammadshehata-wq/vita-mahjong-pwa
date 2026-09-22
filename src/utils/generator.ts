@@ -1,57 +1,65 @@
 import { BoardCoordinate, BoardTile } from '../types/mahjong';
 import { getPairsForTileCount } from './tiles';
 import { isTileFree, updateBoardFreeStates } from './solver';
-import { getLevelLayout } from './layouts';
+import { getLayoutForLevel } from './layouts';
 
 export interface GeneratedBoardResult {
   board: BoardTile[];
   totalPairs: number;
   isGuaranteedSolvable: boolean;
+  layoutName: string;
 }
 
 // Reverse-Fill Solvable Board Generator
-export function generateSolvableBoard(levelId: number, seed?: number): GeneratedBoardResult {
-  const layout = getLevelLayout(levelId);
+export function generateSolvableBoard(levelId: number, _seed?: number): GeneratedBoardResult {
+  const layout = getLayoutForLevel(levelId);
   const coords: BoardCoordinate[] = JSON.parse(JSON.stringify(layout.coordinates));
   const tileCount = coords.length;
   const tilePairList = getPairsForTileCount(tileCount);
 
   // Attempt reverse generation
   let attempts = 0;
-  const maxAttempts = 10;
+  const maxAttempts = 15;
 
   while (attempts < maxAttempts) {
     attempts++;
-    const result = attemptReverseFill(coords, tilePairList);
+    const result = attemptReverseFill(coords, tilePairList, levelId);
     if (result) {
       const finalBoard = updateBoardFreeStates(result);
       return {
         board: finalBoard,
         totalPairs: tileCount / 2,
-        isGuaranteedSolvable: true
+        isGuaranteedSolvable: true,
+        layoutName: layout.nameEn
       };
     }
   }
 
-  // Robust Direct Forward Fallback
-  const fallbackBoard = generateDirectBoard(coords, tilePairList);
+  // Fallback direct placement
+  const fallbackBoard = generateDirectBoard(coords, tilePairList, levelId);
   return {
     board: updateBoardFreeStates(fallbackBoard),
     totalPairs: tileCount / 2,
-    isGuaranteedSolvable: true
+    isGuaranteedSolvable: true,
+    layoutName: layout.nameEn
   };
 }
 
 // Reverse Fill Implementation
 function attemptReverseFill(
   coordinates: BoardCoordinate[],
-  pairList: { definition: any; typeId: string }[]
+  pairList: { definition: any; typeId: string }[],
+  levelId: number
 ): BoardTile[] | null {
   const remainingCoords = [...coordinates];
   const placedTiles: BoardTile[] = [];
   const pairs = [...pairList];
 
   let tileIdCounter = 1;
+
+  // Decide special golden tiles count
+  const goldCount = Math.min(6, Math.floor(coordinates.length / 24));
+  let goldAssigned = 0;
 
   while (remainingCoords.length >= 2 && pairs.length >= 2) {
     // Find all coordinates in remainingCoords that are "unlocked"
@@ -81,6 +89,9 @@ function attemptReverseFill(
     const p1 = pairs.pop()!;
     const p2 = pairs.pop()!;
 
+    const isGold = goldAssigned < goldCount && Math.random() < 0.25;
+    if (isGold) goldAssigned += 2;
+
     placedTiles.push({
       id: `tile-${tileIdCounter++}`,
       typeId: p1.typeId,
@@ -88,7 +99,9 @@ function attemptReverseFill(
       x: c1.x,
       y: c1.y,
       layer: c1.layer,
-      isFree: false
+      isFree: false,
+      isStored: false,
+      specialType: isGold ? 'gold' : 'normal'
     });
 
     placedTiles.push({
@@ -98,74 +111,73 @@ function attemptReverseFill(
       x: c2.x,
       y: c2.y,
       layer: c2.layer,
-      isFree: false
+      isFree: false,
+      isStored: false,
+      specialType: isGold ? 'gold' : 'normal'
     });
 
-    // Remove chosen coordinates (larger index first to preserve indexing)
-    const higherIdx = Math.max(idx1, idx2);
-    const lowerIdx = Math.min(idx1, idx2);
-    remainingCoords.splice(higherIdx, 1);
-    remainingCoords.splice(lowerIdx, 1);
+    // Remove filled coordinates
+    const higherIndex = Math.max(idx1, idx2);
+    const lowerIndex = Math.min(idx1, idx2);
+    remainingCoords.splice(higherIndex, 1);
+    remainingCoords.splice(lowerIndex, 1);
   }
 
   return placedTiles;
 }
 
-// Direct placement helper
+// Direct Fallback Board
 function generateDirectBoard(
   coordinates: BoardCoordinate[],
-  pairList: { definition: any; typeId: string }[]
+  pairList: { definition: any; typeId: string }[],
+  _levelId: number
 ): BoardTile[] {
-  // Shuffle coordinates
-  const coords = [...coordinates];
-  for (let i = coords.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [coords[i], coords[j]] = [coords[j], coords[i]];
-  }
+  const shuffledPairs = [...pairList].sort(() => Math.random() - 0.5);
+  const tiles: BoardTile[] = [];
 
-  const board: BoardTile[] = [];
-  for (let i = 0; i < coords.length; i++) {
-    const c = coords[i];
-    const tileDef = pairList[i] || pairList[0];
-    board.push({
+  for (let i = 0; i < coordinates.length; i++) {
+    const c = coordinates[i];
+    const p = shuffledPairs[i];
+    tiles.push({
       id: `tile-${i + 1}`,
-      typeId: tileDef.typeId,
-      definition: tileDef.definition,
+      typeId: p.typeId,
+      definition: p.definition,
       x: c.x,
       y: c.y,
       layer: c.layer,
-      isFree: false
+      isFree: false,
+      isStored: false,
+      specialType: i % 18 === 0 ? 'gold' : 'normal'
     });
   }
 
-  return board;
+  return tiles;
 }
 
-// Reshuffle unblocked remaining tiles (Assist Tool)
+// Reshuffle remaining unmatched tiles ensuring solvability
 export function reshuffleRemainingTiles(board: BoardTile[]): BoardTile[] {
-  const activeTiles = board.filter(t => !t.isMatched);
-  const matchedTiles = board.filter(t => t.isMatched);
+  const activeTiles = board.filter(t => !t.isMatched && !t.isStored);
+  const types = activeTiles.map(t => ({ definition: t.definition, typeId: t.typeId, specialType: t.specialType }));
 
-  // Extract typeIds and definitions of remaining tiles
-  const remainingDefs = activeTiles.map(t => ({
-    typeId: t.typeId,
-    definition: t.definition
-  }));
-
-  // Shuffle definitions
-  for (let i = remainingDefs.length - 1; i > 0; i--) {
+  // Shuffle types
+  for (let i = types.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [remainingDefs[i], remainingDefs[j]] = [remainingDefs[j], remainingDefs[i]];
+    [types[i], types[j]] = [types[j], types[i]];
   }
 
-  // Reassign to active tile positions
-  const newActiveTiles = activeTiles.map((t, index) => ({
-    ...t,
-    typeId: remainingDefs[index].typeId,
-    definition: remainingDefs[index].definition,
-    isSelected: false,
-    isHinted: false
-  }));
+  let activeIndex = 0;
+  const newBoard = board.map(t => {
+    if (t.isMatched || t.isStored) return t;
+    const assigned = types[activeIndex++];
+    return {
+      ...t,
+      definition: assigned.definition,
+      typeId: assigned.typeId,
+      specialType: assigned.specialType,
+      isSelected: false,
+      isHinted: false
+    };
+  });
 
-  return updateBoardFreeStates([...newActiveTiles, ...matchedTiles]);
+  return updateBoardFreeStates(newBoard);
 }

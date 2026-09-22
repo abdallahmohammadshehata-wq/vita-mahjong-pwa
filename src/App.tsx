@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Play, Swords, Zap, Settings, Trophy, HelpCircle, Star, Sparkles, Download } from 'lucide-react';
+import { Play, Swords, Zap, Settings, Trophy, HelpCircle, Star, Sparkles, Download, ArrowDownToLine } from 'lucide-react';
 import { BoardTile, GameTheme, LevelProgress, MoveRecord } from './types/mahjong';
 import { GameMode, RoomState, PlayerInfo } from './types/multiplayer';
 import { generateSolvableBoard, reshuffleRemainingTiles } from './utils/generator';
-import { updateBoardFreeStates, getHintPair } from './utils/solver';
+import { updateBoardFreeStates, getHintPair, findAvailableMatches } from './utils/solver';
 import { soundFx } from './utils/audio';
 import { 
   getCampaignProgress, 
@@ -17,6 +17,7 @@ import {
 } from './utils/storage';
 
 import { GameBoard } from './components/board/GameBoard';
+import { StorageDock } from './components/board/StorageDock';
 import { GameHUD } from './components/hud/GameHUD';
 import { AssistBar } from './components/hud/AssistBar';
 import { CampaignLevelSelect } from './components/campaign/CampaignLevelSelect';
@@ -38,6 +39,7 @@ export function App() {
   // Campaign State
   const [campaignProgress, setCampaignProgress] = useState<Record<number, LevelProgress>>(getCampaignProgress());
   const [currentLevelId, setCurrentLevelId] = useState<number>(1);
+  const [currentLayoutName, setCurrentLayoutName] = useState<string>('Celestial Dragon Pagoda');
 
   // Active Game State
   const [gameMode, setGameMode] = useState<GameMode>('SOLO_CAMPAIGN');
@@ -167,6 +169,7 @@ export function App() {
     const result = generateSolvableBoard(levelId);
     setBoard(result.board);
     setTotalPairs(result.totalPairs);
+    setCurrentLayoutName(result.layoutName);
     setSelectedTileId(null);
     setScore(0);
     setCombo(1);
@@ -178,6 +181,108 @@ export function App() {
     setIsWinModalOpen(false);
     setView('GAME_SOLO');
   }, []);
+
+  // Active stored tiles in the 4-card holding rack
+  const storedTiles = useMemo(() => {
+    return board.filter(t => t.isStored && !t.isMatched);
+  }, [board]);
+
+  const selectedTile = useMemo(() => {
+    return board.find(t => t.id === selectedTileId) || null;
+  }, [board, selectedTileId]);
+
+  const canStoreSelected = useMemo(() => {
+    return selectedTile !== null && !selectedTile.isStored && storedTiles.length < 4;
+  }, [selectedTile, storedTiles]);
+
+  // Execute Match between two tiles (Board-Board, Board-Storage, or Storage-Storage)
+  const executeMatch = useCallback((tileA: BoardTile, tileB: BoardTile) => {
+    const isGold = tileA.specialType === 'gold' || tileB.specialType === 'gold';
+    const basePoints = isGold ? 250 : 100;
+    const pointsEarned = basePoints * combo;
+    const nextCombo = combo + 1;
+    const newMaxCombo = Math.max(maxCombo, nextCombo);
+
+    if (isGold) {
+      soundFx.playGoldBonus();
+    } else {
+      soundFx.playMatchSuccess(combo);
+    }
+
+    const newBoard = board.map(t => {
+      if (t.id === tileA.id || t.id === tileB.id) {
+        return { 
+          ...t, 
+          isMatched: true, 
+          isStored: false, 
+          isSelected: false, 
+          isFree: false 
+        };
+      }
+      return { ...t, isSelected: false, isHinted: false };
+    });
+
+    const updatedBoard = updateBoardFreeStates(newBoard);
+    setBoard(updatedBoard);
+    setSelectedTileId(null);
+    setScore(s => s + pointsEarned);
+    setCombo(nextCombo);
+    setMaxCombo(newMaxCombo);
+
+    // Record move for Undo
+    setMoveHistory(h => [
+      ...h,
+      {
+        type: tileA.isStored || tileB.isStored ? 'MATCH_FROM_STORAGE' : 'MATCH_BOARD',
+        tile1: tileA,
+        tile2: tileB,
+        timestamp: Date.now(),
+        pointsEarned
+      }
+    ]);
+
+    // Mode 2 Clash: Broadcast Move to Server
+    if (view === 'GAME_MULTIPLAYER' && gameMode === 'CLASH_SHARED' && socket && room) {
+      socket.emit('CLASH_MOVE', {
+        roomId: room.roomId,
+        playerId: myPlayerId,
+        tileId1: tileA.id,
+        tileId2: tileB.id
+      });
+    }
+
+    // Mode 3 Speed Sprint: Broadcast Progress to Server
+    const remainingPairs = updatedBoard.filter(t => !t.isMatched).length / 2;
+    const progressPercent = Math.round(((totalPairs - remainingPairs) / totalPairs) * 100);
+
+    if (view === 'GAME_MULTIPLAYER' && gameMode === 'SPEED_SPRINT' && socket && room) {
+      socket.emit('SPRINT_PROGRESS', {
+        roomId: room.roomId,
+        playerId: myPlayerId,
+        progressData: {
+          matchedPairs: totalPairs - remainingPairs,
+          progressPercent,
+          score: score + pointsEarned,
+          currentCombo: nextCombo,
+          isFinished: remainingPairs === 0
+        }
+      });
+    }
+
+    // Check Victory Condition
+    if (remainingPairs === 0) {
+      if (gameMode === 'SOLO_CAMPAIGN') {
+        const { stars } = saveLevelResult(currentLevelId, timerSeconds, score + pointsEarned, newMaxCombo);
+        setWinStars(stars);
+        setCampaignProgress(getCampaignProgress());
+        soundFx.playVictoryFanfare();
+        setIsWinModalOpen(true);
+      } else if (gameMode === 'SPEED_SPRINT') {
+        soundFx.playVictoryFanfare();
+        setIsWinModalOpen(true);
+      }
+    }
+  }, [board, combo, maxCombo, score, totalPairs, view, gameMode, room, myPlayerId, socket, currentLevelId, timerSeconds]);
 
   // Tile Selection & Matching Logic
   const handleTileClick = useCallback((tile: BoardTile) => {
@@ -215,85 +320,101 @@ export function App() {
 
     // Check if Type Matches!
     if (firstTile.typeId === tile.typeId) {
-      // SUCCESSFUL MATCH!
-      const pointsEarned = 100 * combo;
-      const nextCombo = combo + 1;
-      const newMaxCombo = Math.max(maxCombo, nextCombo);
-
-      soundFx.playMatchSuccess(combo);
-
-      const newBoard = board.map(t => {
-        if (t.id === firstTile.id || t.id === tile.id) {
-          return { ...t, isMatched: true, isSelected: false, isFree: false };
-        }
-        return { ...t, isSelected: false, isHinted: false };
-      });
-
-      const updatedBoard = updateBoardFreeStates(newBoard);
-      setBoard(updatedBoard);
-      setSelectedTileId(null);
-      setScore(s => s + pointsEarned);
-      setCombo(nextCombo);
-      setMaxCombo(newMaxCombo);
-
-      // Record move for Undo
-      setMoveHistory(h => [
-        ...h,
-        {
-          tile1: firstTile,
-          tile2: tile,
-          timestamp: Date.now(),
-          pointsEarned
-        }
-      ]);
-
-      // Mode 2 Clash: Broadcast Move to Server
-      if (view === 'GAME_MULTIPLAYER' && gameMode === 'CLASH_SHARED' && socket && room) {
-        socket.emit('CLASH_MOVE', {
-          roomId: room.roomId,
-          playerId: myPlayerId,
-          tileId1: firstTile.id,
-          tileId2: tile.id
-        });
-      }
-
-      // Mode 3 Speed Sprint: Broadcast Progress to Server
-      const remainingPairs = updatedBoard.filter(t => !t.isMatched).length / 2;
-      const progressPercent = Math.round(((totalPairs - remainingPairs) / totalPairs) * 100);
-
-      if (view === 'GAME_MULTIPLAYER' && gameMode === 'SPEED_SPRINT' && socket && room) {
-        socket.emit('SPRINT_PROGRESS', {
-          roomId: room.roomId,
-          playerId: myPlayerId,
-          progressData: {
-            matchedPairs: totalPairs - remainingPairs,
-            progressPercent,
-            score: score + pointsEarned,
-            currentCombo: nextCombo,
-            isFinished: remainingPairs === 0
-          }
-        });
-      }
-
-      // Check Victory Condition
-      if (remainingPairs === 0) {
-        if (gameMode === 'SOLO_CAMPAIGN') {
-          const { stars } = saveLevelResult(currentLevelId, timerSeconds, score + pointsEarned, newMaxCombo);
-          setWinStars(stars);
-          setCampaignProgress(getCampaignProgress());
-          setIsWinModalOpen(true);
-        } else if (gameMode === 'SPEED_SPRINT') {
-          setIsWinModalOpen(true);
-        }
-      }
+      executeMatch(firstTile, tile);
     } else {
-      // MISMATCH: Reset selection
-      soundFx.playBlockedTap();
-      setSelectedTileId(null);
-      setCombo(1);
-      setBoard(b => b.map(t => ({ ...t, isSelected: false })));
+      // Not a match: switch selection to newly clicked tile
+      soundFx.playTileClick();
+      setSelectedTileId(tile.id);
+      setBoard(b => b.map(t => ({
+        ...t,
+        isSelected: t.id === tile.id,
+        isHinted: false
+      })));
     }
-  }, [selectedTileId, board, combo, maxCombo, score, totalPairs, view, gameMode, room, myPlayerId, socket, currentLevelId, timerSeconds]);
+  }, [selectedTileId, board, view, gameMode, room, myPlayerId, executeMatch]);
+
+  // Move Selected Free Tile into 4-Slot Storage Dock
+  const handleStoreSelectedTile = useCallback(() => {
+    if (!selectedTile || selectedTile.isStored || storedTiles.length >= 4) {
+      soundFx.playBlockedTap();
+      return;
+    }
+
+    soundFx.playStoreTile();
+
+    // Check if moving this tile into storage immediately creates a pair with another stored tile!
+    const matchingStored = storedTiles.find(t => t.typeId === selectedTile.typeId);
+    if (matchingStored) {
+      // Instant auto-match with existing stored tile!
+      executeMatch(selectedTile, matchingStored);
+      return;
+    }
+
+    const nextSlot = storedTiles.length;
+    const newBoard = board.map(t => {
+      if (t.id === selectedTile.id) {
+        return {
+          ...t,
+          isStored: true,
+          storageSlot: nextSlot,
+          isSelected: false,
+          isHinted: false
+        };
+      }
+      return { ...t, isSelected: false };
+    });
+
+    const updatedBoard = updateBoardFreeStates(newBoard);
+    setBoard(updatedBoard);
+    setSelectedTileId(null);
+
+    // Record move
+    setMoveHistory(h => [
+      ...h,
+      {
+        type: 'MOVE_TO_STORAGE',
+        tile1: selectedTile,
+        storedSlot: nextSlot,
+        timestamp: Date.now(),
+        pointsEarned: 0
+      }
+    ]);
+  }, [selectedTile, storedTiles, board, executeMatch]);
+
+  // Recall Tile from Storage Back to Board
+  const handleRecallTile = useCallback((tile: BoardTile) => {
+    if (!tile.isStored) return;
+
+    soundFx.playRecallTile();
+
+    const newBoard = board.map(t => {
+      if (t.id === tile.id) {
+        return {
+          ...t,
+          isStored: false,
+          storageSlot: undefined,
+          isSelected: false,
+          isHinted: false
+        };
+      }
+      return t;
+    });
+
+    const updatedBoard = updateBoardFreeStates(newBoard);
+    setBoard(updatedBoard);
+    setSelectedTileId(null);
+
+    // Record move
+    setMoveHistory(h => [
+      ...h,
+      {
+        type: 'RECALL_FROM_STORAGE',
+        tile1: tile,
+        timestamp: Date.now(),
+        pointsEarned: 0
+      }
+    ]);
+  }, [board]);
 
   // Assist: Hint
   const handleHint = useCallback(() => {
@@ -332,14 +453,35 @@ export function App() {
     setScore(s => Math.max(0, s - lastMove.pointsEarned));
     setCombo(1);
 
-    const revertedBoard = board.map(t => {
-      if (t.id === lastMove.tile1.id || t.id === lastMove.tile2.id) {
-        return { ...t, isMatched: false };
-      }
-      return { ...t, isSelected: false, isHinted: false };
-    });
+    if (lastMove.type === 'MATCH_BOARD' || lastMove.type === 'MATCH_FROM_STORAGE') {
+      const revertedBoard = board.map(t => {
+        if (t.id === lastMove.tile1.id) {
+          return { ...t, isMatched: false, isStored: lastMove.tile1.isStored };
+        }
+        if (lastMove.tile2 && t.id === lastMove.tile2.id) {
+          return { ...t, isMatched: false, isStored: lastMove.tile2.isStored };
+        }
+        return { ...t, isSelected: false, isHinted: false };
+      });
+      setBoard(updateBoardFreeStates(revertedBoard));
+    } else if (lastMove.type === 'MOVE_TO_STORAGE') {
+      const revertedBoard = board.map(t => {
+        if (t.id === lastMove.tile1.id) {
+          return { ...t, isStored: false, storageSlot: undefined };
+        }
+        return t;
+      });
+      setBoard(updateBoardFreeStates(revertedBoard));
+    } else if (lastMove.type === 'RECALL_FROM_STORAGE') {
+      const revertedBoard = board.map(t => {
+        if (t.id === lastMove.tile1.id) {
+          return { ...t, isStored: true };
+        }
+        return t;
+      });
+      setBoard(updateBoardFreeStates(revertedBoard));
+    }
 
-    setBoard(updateBoardFreeStates(revertedBoard));
     setSelectedTileId(null);
   }, [moveHistory, board]);
 
@@ -401,15 +543,15 @@ export function App() {
               🀄
             </div>
             <div className="absolute -bottom-2 -right-2 bg-amber-400 text-amber-950 font-black text-xs px-2.5 py-0.5 rounded-full border-2 border-white shadow">
-              PWA
+              4-CARD DOCK
             </div>
           </div>
 
           <h1 className="text-4xl sm:text-5xl font-black text-vita-wood tracking-tight">
-            Vita Mahjong
+            Vita Mahjong Pro
           </h1>
-          <p className="text-sm font-semibold text-emerald-800/80 mt-1 max-w-sm mx-auto">
-            Accessible, Senior-Friendly Solitaire & Real-Time Multiplayer
+          <p className="text-sm font-semibold text-emerald-800/80 mt-1 max-w-md mx-auto">
+            Tactical 4-Card Holding Dock • 6-Layer Architectures • Real-Time Multiplayer
           </p>
 
           {/* Menu Action Cards */}
@@ -425,7 +567,7 @@ export function App() {
                 </div>
                 <div>
                   <div className="text-lg leading-tight">Solo Campaign</div>
-                  <div className="text-xs font-normal text-emerald-200">500 Solvable Levels (100% Offline)</div>
+                  <div className="text-xs font-normal text-emerald-200">500 Solvable Levels + 4-Slot Rack (100% Offline)</div>
                 </div>
               </div>
               <Play className="w-6 h-6 fill-current text-amber-300" />
@@ -542,22 +684,33 @@ export function App() {
           )}
 
           {/* Center Play Area */}
-          <div className="flex-1 flex flex-col md:flex-row items-center justify-center relative w-full overflow-hidden p-2">
+          <div className="flex-1 flex flex-col items-center justify-center relative w-full overflow-hidden p-2">
             {/* Speed Sprint Sidebar for multiplayer opponents */}
             {view === 'GAME_MULTIPLAYER' && gameMode === 'SPEED_SPRINT' && room && (
-              <div className="w-full md:w-64 md:h-full p-2">
+              <div className="w-full md:w-64 p-2">
                 <SprintSidebar players={room.players} myPlayerId={myPlayerId} />
               </div>
             )}
 
             {/* 3D Mahjong Board */}
-            <div className="flex-1 w-full h-full flex items-center justify-center min-h-[420px]">
+            <div className="flex-1 w-full h-full flex items-center justify-center min-h-[380px]">
               <GameBoard
                 board={board}
                 onTileClick={handleTileClick}
                 scale={boardScale}
               />
             </div>
+
+            {/* 4-Card Holding Rack / Storage Dock */}
+            <StorageDock
+              storedTiles={storedTiles}
+              maxCapacity={4}
+              selectedTileId={selectedTileId}
+              onTileClick={handleTileClick}
+              onStoreSelectedTile={handleStoreSelectedTile}
+              onRecallTile={handleRecallTile}
+              canStore={canStoreSelected}
+            />
           </div>
 
           {/* Bottom Assist Bar */}

@@ -1,5 +1,46 @@
 import { BoardCoordinate, LevelLayoutTemplate } from '../types/mahjong';
 
+// Helper: Trim or pad coordinates to exactly targetCount (must be even)
+function trimOrPadCoordinates(coords: BoardCoordinate[], targetCount: number): BoardCoordinate[] {
+  let list = [...coords];
+  // Filter duplicates
+  const seen = new Set<string>();
+  list = list.filter(c => {
+    const key = `${c.x},${c.y},${c.layer}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  if (list.length > targetCount) {
+    list = list.slice(0, targetCount);
+  } else if (list.length < targetCount) {
+    // Mirror or pad
+    let i = 0;
+    while (list.length < targetCount) {
+      const base = list[i % list.length];
+      const newCoord: BoardCoordinate = {
+        x: base.x + 0.5,
+        y: base.y + 0.5,
+        layer: base.layer + 1
+      };
+      const key = `${newCoord.x},${newCoord.y},${newCoord.layer}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        list.push(newCoord);
+      }
+      i++;
+    }
+  }
+
+  // Ensure even count
+  if (list.length % 2 !== 0) {
+    list.pop();
+  }
+
+  return list;
+}
+
 // 1. Classic Turtle (144 tiles - 5 layers)
 export function getClassicTurtleLayout(): BoardCoordinate[] {
   const coords: BoardCoordinate[] = [];
@@ -44,11 +85,121 @@ export function getClassicTurtleLayout(): BoardCoordinate[] {
   // Layer 4: 1 top pinnacle
   coords.push({ x: 7, y: 6, layer: 4 });
 
-  // Ensure total is even and exactly scaled
   return trimOrPadCoordinates(coords, 144);
 }
 
-// 2. Pyramid Layout (72 tiles)
+// 2. Celestial 6-Layer Dragon Pagoda (Complex 6-Tier Architecture - 144 tiles)
+export function getCelestialDragonPagodaLayout(): BoardCoordinate[] {
+  const coords: BoardCoordinate[] = [];
+
+  // Layer 0: Wide octagon foundation (10x10)
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 10; c++) {
+      if ((r === 0 || r === 7) && (c < 2 || c > 7)) continue;
+      coords.push({ x: c * 2, y: r * 2, layer: 0 });
+    }
+  }
+
+  // Layer 1: Concentric Fortress Ring
+  for (let r = 1; r < 7; r++) {
+    for (let c = 2; c < 8; c++) {
+      coords.push({ x: c * 2, y: r * 2, layer: 1 });
+    }
+  }
+
+  // Layer 2: Quad Corner Towers + Central Spire
+  for (let r = 2; r < 6; r++) {
+    for (let c = 3; c < 7; c++) {
+      coords.push({ x: c * 2, y: r * 2, layer: 2 });
+    }
+  }
+
+  // Layer 3: Inner Sanctum (3x3)
+  for (let r = 3; r < 6; r++) {
+    for (let c = 4; c < 7; c++) {
+      coords.push({ x: c * 2, y: r * 2, layer: 3 });
+    }
+  }
+
+  // Layer 4: High Spires (2x2)
+  coords.push({ x: 8, y: 6, layer: 4 });
+  coords.push({ x: 10, y: 6, layer: 4 });
+  coords.push({ x: 8, y: 8, layer: 4 });
+  coords.push({ x: 10, y: 8, layer: 4 });
+
+  // Layer 5: Apex Dragon Pearl
+  coords.push({ x: 9, y: 7, layer: 5 });
+  coords.push({ x: 9, y: 9, layer: 5 });
+
+  return trimOrPadCoordinates(coords, 144);
+}
+
+// 3. Forbidden Palace Citadel (5 Layers - 128 tiles)
+export function getForbiddenPalaceLayout(): BoardCoordinate[] {
+  const coords: BoardCoordinate[] = [];
+
+  // Outer Courtyard Base
+  for (let r = 0; r < 7; r++) {
+    for (let c = 0; c < 12; c++) {
+      if (r > 1 && r < 5 && c > 2 && c < 9) continue; // Hollow courtyard
+      coords.push({ x: c * 2, y: r * 2, layer: 0 });
+    }
+  }
+
+  // Inner Gate Pillars (Layer 1)
+  for (let r = 1; r < 6; r++) {
+    for (let c = 2; c < 10; c++) {
+      coords.push({ x: c * 2, y: r * 2, layer: 1 });
+    }
+  }
+
+  // Grand Hall (Layer 2)
+  for (let r = 2; r < 5; r++) {
+    for (let c = 4; c < 8; c++) {
+      coords.push({ x: c * 2, y: r * 2, layer: 2 });
+    }
+  }
+
+  // Throne Dais (Layer 3 & 4)
+  coords.push({ x: 10, y: 6, layer: 3 });
+  coords.push({ x: 12, y: 6, layer: 3 });
+  coords.push({ x: 11, y: 6, layer: 4 });
+
+  return trimOrPadCoordinates(coords, 128);
+}
+
+// 4. Labyrinth Maze Matrix (4 Layers - 108 tiles)
+export function getLabyrinthMazeLayout(): BoardCoordinate[] {
+  const coords: BoardCoordinate[] = [];
+
+  // Maze Base Grid
+  for (let r = 0; r < 6; r++) {
+    for (let c = 0; c < 10; c++) {
+      if ((r + c) % 2 === 0 || r === 0 || r === 5 || c === 0 || c === 9) {
+        coords.push({ x: c * 2, y: r * 2, layer: 0 });
+      }
+    }
+  }
+
+  // Bridge Overpasses (Layer 1)
+  for (let r = 1; r < 5; r++) {
+    for (let c = 2; c < 8; c += 2) {
+      coords.push({ x: c * 2 + 1, y: r * 2, layer: 1 });
+    }
+  }
+
+  // Central Towers (Layer 2 & 3)
+  for (let r = 2; r < 4; r++) {
+    for (let c = 4; c < 6; c++) {
+      coords.push({ x: c * 2, y: r * 2, layer: 2 });
+      coords.push({ x: c * 2 + 0.5, y: r * 2 + 0.5, layer: 3 });
+    }
+  }
+
+  return trimOrPadCoordinates(coords, 108);
+}
+
+// 5. Pyramid Layout (72 tiles)
 export function getPyramidLayout(): BoardCoordinate[] {
   const coords: BoardCoordinate[] = [];
   
@@ -77,7 +228,7 @@ export function getPyramidLayout(): BoardCoordinate[] {
   return trimOrPadCoordinates(coords, 72);
 }
 
-// 3. Mini Starter Layout (36 tiles - Level 1)
+// 6. Mini Starter Layout (36 tiles - Level 1)
 export function getMiniStarterLayout(): BoardCoordinate[] {
   const coords: BoardCoordinate[] = [];
   // 4x4 layer 0 (16)
@@ -86,7 +237,7 @@ export function getMiniStarterLayout(): BoardCoordinate[] {
       coords.push({ x: c * 2 + 2, y: r * 2 + 2, layer: 0 });
     }
   }
-  // 3x3 layer 1 (9) -> trimmed to 8
+  // 3x3 layer 1 (9)
   for (let r = 0; r < 3; r++) {
     for (let c = 0; c < 3; c++) {
       coords.push({ x: c * 2 + 3, y: r * 2 + 3, layer: 1 });
@@ -98,156 +249,81 @@ export function getMiniStarterLayout(): BoardCoordinate[] {
       coords.push({ x: c * 2 + 4, y: r * 2 + 4, layer: 2 });
     }
   }
-  // 4 corner pillars
-  coords.push({ x: 0, y: 0, layer: 0 });
-  coords.push({ x: 10, y: 0, layer: 0 });
-  coords.push({ x: 0, y: 10, layer: 0 });
-  coords.push({ x: 10, y: 10, layer: 0 });
-  coords.push({ x: 5, y: 5, layer: 3 });
-  coords.push({ x: 5, y: 7, layer: 3 });
-
   return trimOrPadCoordinates(coords, 36);
 }
 
-// 4. Fortress Layout (108 tiles)
-export function getFortressLayout(): BoardCoordinate[] {
-  const coords: BoardCoordinate[] = [];
-  // Outer perimeter & towers
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 8; c++) {
-      const isWall = r === 0 || r === 7 || c === 0 || c === 7;
-      const isTower = (r === 0 || r === 7) && (c === 0 || c === 7);
-      if (isWall) {
-        coords.push({ x: c * 2, y: r * 2, layer: 0 });
-        if (isTower) {
-          coords.push({ x: c * 2, y: r * 2, layer: 1 });
-          coords.push({ x: c * 2, y: r * 2, layer: 2 });
-        }
-      } else if (r >= 2 && r <= 5 && c >= 2 && c <= 5) {
-        coords.push({ x: c * 2, y: r * 2, layer: 0 });
-        coords.push({ x: c * 2, y: r * 2, layer: 1 });
-      }
-    }
-  }
-  return trimOrPadCoordinates(coords, 108);
-}
-
-// 5. Butterfly / Wings Layout (96 tiles)
-export function getButterflyLayout(): BoardCoordinate[] {
-  const coords: BoardCoordinate[] = [];
-  // Central body
-  for (let r = 0; r < 6; r++) {
-    coords.push({ x: 6, y: r * 2, layer: 0 });
-    coords.push({ x: 8, y: r * 2, layer: 0 });
-    coords.push({ x: 7, y: r * 2, layer: 1 });
-  }
-  // Left Wing
-  for (let r = 0; r < 6; r++) {
-    const width = (r === 0 || r === 5) ? 2 : 3;
-    for (let c = 0; c < width; c++) {
-      coords.push({ x: (3 - c) * 2, y: r * 2, layer: 0 });
-      if (c === 1) coords.push({ x: (3 - c) * 2, y: r * 2, layer: 1 });
-    }
-  }
-  // Right Wing
-  for (let r = 0; r < 6; r++) {
-    const width = (r === 0 || r === 5) ? 2 : 3;
-    for (let c = 0; c < width; c++) {
-      coords.push({ x: (4 + c) * 2 + 2, y: r * 2, layer: 0 });
-      if (c === 1) coords.push({ x: (4 + c) * 2 + 2, y: r * 2, layer: 1 });
-    }
-  }
-  return trimOrPadCoordinates(coords, 96);
-}
-
-// Utility: Trim or pad coordinates to exact target count (must be even)
-function trimOrPadCoordinates(coords: BoardCoordinate[], targetCount: number): BoardCoordinate[] {
-  const target = targetCount % 2 === 0 ? targetCount : targetCount + 1;
-  
-  if (coords.length > target) {
-    // Symmetrically trim
-    const trimmed = coords.slice(0, target);
-    return trimmed;
-  }
-  
-  // Symmetrically pad if needed
-  const res = [...coords];
-  let step = 0;
-  while (res.length < target) {
-    res.push({ x: (step % 6) * 2 + 1, y: Math.floor(step / 6) * 2 + 1, layer: 0 });
-    res.push({ x: (step % 6) * 2 + 3, y: Math.floor(step / 6) * 2 + 1, layer: 0 });
-    step += 2;
-  }
-  return res.slice(0, target);
-}
-
-// Dynamic 500 Campaign Levels Generator
-export function getLevelLayout(levelId: number): LevelLayoutTemplate {
-  const safeId = Math.max(1, Math.min(500, levelId));
-  
-  // Scaling tile count: Level 1 = 36 tiles -> Level 500 = 144 tiles
-  const progressRatio = (safeId - 1) / 499;
-  // Step in multiples of 4 or 2
-  const rawTileCount = Math.round(36 + progressRatio * (144 - 36));
+// Generate Layout for any Level ID (1 to 500)
+export function getLayoutForLevel(levelId: number): LevelLayoutTemplate {
+  // Scaling tile count from 36 (Level 1) to 144 (Level 500)
+  const clampedLevel = Math.max(1, Math.min(500, levelId));
+  const rawTileCount = Math.round(36 + ((clampedLevel - 1) / 499) * (144 - 36));
   const tileCount = rawTileCount % 2 === 0 ? rawTileCount : rawTileCount + 1;
 
-  const archetypeIndex = safeId % 8;
-  let coords: BoardCoordinate[];
-  let name = `Level ${safeId}`;
+  // Archetype rotation
+  const archetypeIndex = (levelId - 1) % 6;
+
+  let baseCoords: BoardCoordinate[];
+  let nameEn = '';
+  let name = '';
   let category: LevelLayoutTemplate['category'] = 'Classic';
+  let maxLayers = 4;
 
   switch (archetypeIndex) {
     case 0:
-      coords = getClassicTurtleLayout();
-      name = `Great Turtle ${safeId}`;
-      category = 'Classic';
+      baseCoords = getCelestialDragonPagodaLayout();
+      name = '九龍寶塔 (Celestial Pagoda)';
+      nameEn = 'Celestial Dragon Pagoda';
+      category = 'Pagodas';
+      maxLayers = 6;
       break;
     case 1:
-      coords = getPyramidLayout();
-      name = `Solar Pyramid ${safeId}`;
-      category = 'Geometric';
+      baseCoords = getForbiddenPalaceLayout();
+      name = '紫禁宮闕 (Forbidden Palace)';
+      nameEn = 'Forbidden Palace Citadel';
+      category = 'Structures';
+      maxLayers = 5;
       break;
     case 2:
-      coords = getFortressLayout();
-      name = `Imperial Fortress ${safeId}`;
-      category = 'Structures';
+      baseCoords = getLabyrinthMazeLayout();
+      name = '八卦迷宮 (Eight Trigrams Maze)';
+      nameEn = 'Labyrinth Maze Matrix';
+      category = 'Mazes';
+      maxLayers = 4;
       break;
     case 3:
-      coords = getButterflyLayout();
-      name = `Jade Butterfly ${safeId}`;
-      category = 'Animals';
+      baseCoords = getClassicTurtleLayout();
+      name = '金龜祝壽 (Immortal Turtle)';
+      nameEn = 'Immortal Turtle';
+      category = 'Classic';
+      maxLayers = 5;
       break;
     case 4:
-      coords = getMiniStarterLayout();
-      name = `Lotus Blossom ${safeId}`;
-      category = 'Symbols';
-      break;
-    case 5:
-      coords = getClassicTurtleLayout();
-      name = `Dragon Crest ${safeId}`;
-      category = 'Animals';
-      break;
-    case 6:
-      coords = getPyramidLayout();
-      name = `Mountain Bridge ${safeId}`;
-      category = 'Structures';
+      baseCoords = getPyramidLayout();
+      name = '天壇層樓 (Temple of Heaven)';
+      nameEn = 'Temple of Heaven Pyramid';
+      category = 'Complex';
+      maxLayers = 4;
       break;
     default:
-      coords = getButterflyLayout();
-      name = `Celestial Arena ${safeId}`;
-      category = 'Geometric';
+      baseCoords = getMiniStarterLayout();
+      name = '太極初成 (Taiji Genesis)';
+      nameEn = 'Taiji Genesis';
+      category = 'Classic';
+      maxLayers = 3;
       break;
   }
 
-  // Adjust coordinates to match the scaled level tileCount
-  const scaledCoords = trimOrPadCoordinates(coords, tileCount);
+  const coordinates = trimOrPadCoordinates(baseCoords, tileCount);
 
   return {
-    id: safeId,
+    id: levelId,
     name,
-    nameEn: name,
+    nameEn,
     category,
-    tileCount: scaledCoords.length,
-    coordinates: scaledCoords
+    tileCount: coordinates.length,
+    coordinates,
+    maxLayers
   };
 }
+
+export const getLevelLayout = getLayoutForLevel;

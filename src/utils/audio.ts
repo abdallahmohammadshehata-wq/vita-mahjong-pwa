@@ -53,9 +53,7 @@ class SoundEngine {
 
       osc.start();
       osc.stop(this.ctx.currentTime + 0.06);
-    } catch (e) {
-      // Audio fallback
-    }
+    } catch (e) {}
   }
 
   // 2. Harmonious Match Success Chime
@@ -89,7 +87,81 @@ class SoundEngine {
     } catch (e) {}
   }
 
-  // 3. Blocked / Invalid Move Bump
+  // 3. Move Tile to 4-Slot Storage Dock (Smooth swoosh/dock tone)
+  public playStoreTile() {
+    if (!this.soundEnabled) return;
+    try {
+      this.initContext();
+      if (!this.ctx) return;
+
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(320, this.ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(640, this.ctx.currentTime + 0.12);
+
+      gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.14);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.14);
+    } catch (e) {}
+  }
+
+  // 4. Recall Tile from Storage Back to Board
+  public playRecallTile() {
+    if (!this.soundEnabled) return;
+    try {
+      this.initContext();
+      if (!this.ctx) return;
+
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(640, this.ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(320, this.ctx.currentTime + 0.12);
+
+      gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.14);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.14);
+    } catch (e) {}
+  }
+
+  // 5. Golden Tile Bonus Chime
+  public playGoldBonus() {
+    if (!this.soundEnabled) return;
+    try {
+      this.initContext();
+      if (!this.ctx) return;
+
+      const freqs = [784, 987.77, 1174.66, 1567.98]; // G5, B5, D6, G6
+      freqs.forEach((f, i) => {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(f, this.ctx.currentTime + i * 0.04);
+        gain.gain.setValueAtTime(0.25, this.ctx.currentTime + i * 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + i * 0.04 + 0.3);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(this.ctx.currentTime + i * 0.04);
+        osc.stop(this.ctx.currentTime + i * 0.04 + 0.3);
+      });
+    } catch (e) {}
+  }
+
+  // 6. Blocked / Invalid Move Bump
   public playBlockedTap() {
     if (!this.soundEnabled) return;
     try {
@@ -114,7 +186,7 @@ class SoundEngine {
     } catch (e) {}
   }
 
-  // 4. Shuffle / Undo Sound
+  // 7. Shuffle / Undo Sound
   public playShuffle() {
     if (!this.soundEnabled) return;
     try {
@@ -129,7 +201,7 @@ class SoundEngine {
     } catch (e) {}
   }
 
-  // 5. Grand Victory Fanfare
+  // 8. Grand Victory Fanfare
   public playVictoryFanfare() {
     if (!this.soundEnabled) return;
     try {

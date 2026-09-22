@@ -150,9 +150,10 @@ export const CampaignLevelSelect: React.FC<CampaignLevelSelectProps> = ({
               <div className="my-2 flex flex-col items-center">
                 <span className="text-2xl filter drop-shadow-xs">
                   {layout.category === 'Classic' ? '🐢' :
-                   layout.category === 'Geometric' ? '🔺' :
-                   layout.category === 'Animals' ? '🦋' :
-                   layout.category === 'Structures' ? '🏰' : '🌸'}
+                   layout.category === 'Pagodas' ? '🏯' :
+                   layout.category === 'Structures' ? '🏰' :
+                   layout.category === 'Mazes' ? '🌀' :
+                   layout.category === 'Complex' ? '🔺' : '🌸'}
                 </span>
                 <span className="text-[10px] font-semibold text-gray-500 mt-1 truncate max-w-[80px]">
                   {layout.tileCount} Tiles

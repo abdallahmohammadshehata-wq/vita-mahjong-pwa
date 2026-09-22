@@ -15,9 +15,10 @@ export const MahjongTile: React.FC<MahjongTileProps> = ({
   scale = 1,
   tileSize = { width: 52, height: 68 }
 }) => {
-  const { definition, x, y, layer, isFree, isSelected, isHinted, isMatched } = tile;
+  const { definition, x, y, layer, isFree, isSelected, isHinted, isMatched, isStored, specialType } = tile;
 
-  if (isMatched) return null;
+  // Stored or Matched tiles are not drawn on the board plane
+  if (isMatched || isStored) return null;
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -109,19 +110,23 @@ export const MahjongTile: React.FC<MahjongTileProps> = ({
     >
       {/* 3D Tile Side/Base (Jade/Wood Backing) */}
       <div 
-        className="absolute inset-0 rounded-lg bg-gradient-to-br from-emerald-800 to-teal-950 translate-x-[3px] translate-y-[5px] shadow-md pointer-events-none"
+        className={`absolute inset-0 rounded-lg translate-x-[3px] translate-y-[5px] shadow-md pointer-events-none ${
+          specialType === 'gold' 
+            ? 'bg-gradient-to-br from-amber-600 via-amber-700 to-yellow-900 ring-1 ring-amber-400' 
+            : 'bg-gradient-to-br from-emerald-800 to-teal-950'
+        }`}
       />
 
       {/* Front Ivory/Cream Face */}
       <div 
         className={`
-          relative w-full h-full rounded-lg border border-[#D5C9B8] 
-          bg-gradient-to-b from-[#FFFFFF] via-[#FAF6F0] to-[#EFE7D8]
+          relative w-full h-full rounded-lg border 
+          ${specialType === 'gold' ? 'border-amber-400 bg-gradient-to-b from-amber-50 via-amber-100/70 to-yellow-100' : 'border-[#D5C9B8] bg-gradient-to-b from-[#FFFFFF] via-[#FAF6F0] to-[#EFE7D8]'}
           flex flex-col items-center justify-between p-1 shadow-inner
           ${!isFree ? 'brightness-[0.88] saturate-[0.85]' : 'hover:brightness-105'}
         `}
       >
-        {/* Top-Left Tiny Label */}
+        {/* Top-Left Tiny Label & Gold Badge */}
         <div className="w-full flex justify-between items-center px-1">
           <span 
             className="text-[10px] font-bold tracking-tighter opacity-80"
@@ -131,9 +136,15 @@ export const MahjongTile: React.FC<MahjongTileProps> = ({
               ? definition.value 
               : ''}
           </span>
-          <span className="text-[9px] opacity-40 font-mono">
-            {definition.suit[0].toUpperCase()}
-          </span>
+          {specialType === 'gold' ? (
+            <span className="text-[8px] font-black text-amber-800 bg-amber-200 px-1 rounded-full">
+              ★2X
+            </span>
+          ) : (
+            <span className="text-[9px] opacity-40 font-mono">
+              {definition.suit[0].toUpperCase()}
+            </span>
+          )}
         </div>
 
         {/* Main High-Contrast Symbol / Character */}
