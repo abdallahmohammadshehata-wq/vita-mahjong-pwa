@@ -15,7 +15,7 @@ export interface PlayerInfo {
   progressPercent: number; // 0-100
   isFinished: boolean;
   finishTime?: number;
-  connected: boolean;
+  connected?: boolean;
 }
 
 export interface RoomState {
@@ -24,10 +24,12 @@ export interface RoomState {
   hostId: string;
   isStarted: boolean;
   isFinished: boolean;
+  status?: 'WAITING' | 'PLAYING' | 'FINISHED';
   winnerId?: string;
   levelId: number;
   seed: number;
   players: PlayerInfo[];
+  boardState?: BoardTile[];
   
   // Mode 2 (Clash Shared Board) state
   activePlayerIndex?: number;
@@ -49,8 +51,8 @@ export interface SocketMessagePayloads {
     tileId1: string; 
     tileId2: string; 
     pointsEarned: number; 
-    nextPlayerIndex: number;
-    turnTimeRemaining: number;
+    nextPlayerIndex: number; 
+    turnTimeRemaining: number; 
     board: BoardTile[];
   };
   SPRINT_PROGRESS_UPDATE: {

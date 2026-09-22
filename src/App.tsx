@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Play, Swords, Zap, Settings, Trophy, HelpCircle, Star, Sparkles, Download, ArrowDownToLine } from 'lucide-react';
+import { Play, Swords, Zap, Settings, Trophy, HelpCircle, Star, Sparkles, Download, ArrowDownToLine, Sun, Moon, Layers } from 'lucide-react';
 import { BoardTile, GameTheme, LevelProgress, MoveRecord } from './types/mahjong';
 import { GameMode, RoomState, PlayerInfo } from './types/multiplayer';
 import { generateSolvableBoard, reshuffleRemainingTiles } from './utils/generator';
 import { updateBoardFreeStates, getHintPair, findAvailableMatches } from './utils/solver';
 import { soundFx } from './utils/audio';
+import { p2pManager } from './utils/p2pMultiplayer';
 import { 
   getCampaignProgress, 
   saveLevelResult, 
@@ -35,6 +36,9 @@ export function App() {
   const [theme, setTheme] = useState<GameTheme>(getSavedTheme());
   const [soundEnabled, setSoundEnabled] = useState<boolean>(getSavedSound());
   const [playerProfile, setPlayerProfile] = useState(getSavedPlayerProfile());
+  const [is3DView, setIs3DView] = useState<boolean>(true);
+
+  const isDarkMode = theme === 'dark' || theme === 'wood';
 
   // Campaign State
   const [campaignProgress, setCampaignProgress] = useState<Record<number, LevelProgress>>(getCampaignProgress());
@@ -63,20 +67,28 @@ export function App() {
   const [winStars, setWinStars] = useState<number>(3);
 
   // Multiplayer State
-  const [socket, setSocket] = useState<Socket | null>(null);
-  const [isConnecting, setIsConnecting] = useState<boolean>(false);
   const [room, setRoom] = useState<RoomState | null>(null);
-  const [myPlayerId, setMyPlayerId] = useState<string>('');
+  const [myPlayerId, setMyPlayerId] = useState<string>(p2pManager.myPlayerId);
   const [turnTimeRemaining, setTurnTimeRemaining] = useState<number>(15);
+  const [isConnecting, setIsConnecting] = useState<boolean>(false);
 
   // PWA Install Prompt
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [pwaInstallable, setPwaInstallable] = useState<boolean>(false);
 
-  // Timer Ref
+  // Timers
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const clashTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const botTurnRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Initialize Sound & PWA prompt listener
+  // Toggle Theme (Light / Dark)
+  const handleToggleTheme = () => {
+    const nextTheme: GameTheme = isDarkMode ? 'ivory' : 'dark';
+    setTheme(nextTheme);
+    saveTheme(nextTheme);
+  };
+
+  // Initialize Sound & PWA prompt listener & P2P Event Listeners
   useEffect(() => {
     soundFx.setSoundEnabled(soundEnabled);
 
@@ -87,25 +99,13 @@ export function App() {
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
-  }, []);
 
-  // Connect Socket.io for multiplayer
-  useEffect(() => {
-    const s = io(window.location.origin, {
-      transports: ['websocket', 'polling'],
-      reconnectionAttempts: 5
-    });
-
-    s.on('connect', () => {
-      console.log('Connected to Multiplayer Socket Server');
-    });
-
-    s.on('ROOM_UPDATE', ({ room: updatedRoom }: { room: RoomState }) => {
+    // Register P2P Listeners
+    p2pManager.on('ROOM_UPDATE', ({ room: updatedRoom }: { room: RoomState }) => {
       setRoom(updatedRoom);
     });
 
-    s.on('GAME_START', ({ room: startedRoom, board: initialBoard }: { room: RoomState; board: BoardTile[] }) => {
+    p2pManager.on('GAME_START', ({ room: startedRoom, board: initialBoard }: { room: RoomState; board: BoardTile[] }) => {
       setRoom(startedRoom);
       setGameMode(startedRoom.mode);
       setBoard(initialBoard);
@@ -116,34 +116,18 @@ export function App() {
       setView('GAME_MULTIPLAYER');
     });
 
-    s.on('CLASH_TIMER_TICK', ({ turnTimeRemaining: time }: { turnTimeRemaining: number }) => {
-      setTurnTimeRemaining(time);
-    });
-
-    s.on('CLASH_TURN_CHANGED', ({ activePlayerIndex, turnTimeRemaining: time, room: updatedRoom }) => {
-      setTurnTimeRemaining(time);
-      setRoom(updatedRoom);
-    });
-
-    s.on('CLASH_MOVE_MADE', ({ board: newBoard, room: updatedRoom, pointsEarned }) => {
+    p2pManager.on('CLASH_MOVE_MADE', ({ board: newBoard, room: updatedRoom }: { board: BoardTile[]; room: RoomState }) => {
       setBoard(updateBoardFreeStates(newBoard));
       setRoom(updatedRoom);
       soundFx.playMatchSuccess(1);
     });
 
-    s.on('SPRINT_PROGRESS_UPDATE', ({ players }: { players: PlayerInfo[] }) => {
+    p2pManager.on('SPRINT_PROGRESS_UPDATE', ({ players }: { players: PlayerInfo[] }) => {
       setRoom(r => r ? { ...r, players } : null);
     });
 
-    s.on('GAME_OVER', ({ room: finishedRoom }: { room: RoomState }) => {
-      setRoom(finishedRoom);
-      setIsWinModalOpen(true);
-    });
-
-    setSocket(s);
-
     return () => {
-      s.disconnect();
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
     };
   }, []);
 
@@ -162,27 +146,33 @@ export function App() {
     };
   }, [view, gameMode]);
 
-  // Start Solo Campaign Level
-  const startSoloLevel = useCallback((levelId: number) => {
-    setCurrentLevelId(levelId);
-    setGameMode('SOLO_CAMPAIGN');
-    const result = generateSolvableBoard(levelId);
-    setBoard(result.board);
-    setTotalPairs(result.totalPairs);
-    setCurrentLayoutName(result.layoutName);
-    setSelectedTileId(null);
-    setScore(0);
-    setCombo(1);
-    setMaxCombo(1);
-    setTimerSeconds(0);
-    setMoveHistory([]);
-    setHintsLeft(3);
-    setShufflesLeft(3);
-    setIsWinModalOpen(false);
-    setView('GAME_SOLO');
-  }, []);
+  // Turn Clash Timer (15s) in multiplayer
+  useEffect(() => {
+    if (view === 'GAME_MULTIPLAYER' && gameMode === 'CLASH_SHARED' && room?.status === 'PLAYING') {
+      clashTimerRef.current = setInterval(() => {
+        setTurnTimeRemaining(t => {
+          if (t <= 1) {
+            // Advance to next player
+            setRoom(r => {
+              if (!r) return null;
+              const nextIndex = ((r.activePlayerIndex || 0) + 1) % r.players.length;
+              return { ...r, activePlayerIndex: nextIndex };
+            });
+            return 15;
+          }
+          return t - 1;
+        });
+      }, 1000);
+    } else {
+      if (clashTimerRef.current) clearInterval(clashTimerRef.current);
+    }
 
-  // Active stored tiles in the 4-card holding rack
+    return () => {
+      if (clashTimerRef.current) clearInterval(clashTimerRef.current);
+    };
+  }, [view, gameMode, room?.status]);
+
+  // Stored tiles in the 4-card holding rack
   const storedTiles = useMemo(() => {
     return board.filter(t => t.isStored && !t.isMatched);
   }, [board]);
@@ -195,7 +185,7 @@ export function App() {
     return selectedTile !== null && !selectedTile.isStored && storedTiles.length < 4;
   }, [selectedTile, storedTiles]);
 
-  // Execute Match between two tiles (Board-Board, Board-Storage, or Storage-Storage)
+  // Execute Match
   const executeMatch = useCallback((tileA: BoardTile, tileB: BoardTile) => {
     const isGold = tileA.specialType === 'gold' || tileB.specialType === 'gold';
     const basePoints = isGold ? 250 : 100;
@@ -241,35 +231,29 @@ export function App() {
       }
     ]);
 
-    // Mode 2 Clash: Broadcast Move to Server
-    if (view === 'GAME_MULTIPLAYER' && gameMode === 'CLASH_SHARED' && socket && room) {
-      socket.emit('CLASH_MOVE', {
-        roomId: room.roomId,
-        playerId: myPlayerId,
-        tileId1: tileA.id,
-        tileId2: tileB.id
-      });
+    // Mode 2 Clash Broadcast
+    if (view === 'GAME_MULTIPLAYER' && gameMode === 'CLASH_SHARED' && room) {
+      const remainingSeconds = turnTimeRemaining;
+      const turnBonus = 100 + (remainingSeconds * 10);
+      p2pManager.sendClashMove(tileA.id, tileB.id, updatedBoard, turnBonus);
+      setTurnTimeRemaining(15);
     }
 
-    // Mode 3 Speed Sprint: Broadcast Progress to Server
+    // Mode 3 Speed Sprint Broadcast
     const remainingPairs = updatedBoard.filter(t => !t.isMatched).length / 2;
     const progressPercent = Math.round(((totalPairs - remainingPairs) / totalPairs) * 100);
 
-    if (view === 'GAME_MULTIPLAYER' && gameMode === 'SPEED_SPRINT' && socket && room) {
-      socket.emit('SPRINT_PROGRESS', {
-        roomId: room.roomId,
-        playerId: myPlayerId,
-        progressData: {
-          matchedPairs: totalPairs - remainingPairs,
-          progressPercent,
-          score: score + pointsEarned,
-          currentCombo: nextCombo,
-          isFinished: remainingPairs === 0
-        }
-      });
+    if (view === 'GAME_MULTIPLAYER' && gameMode === 'SPEED_SPRINT' && room) {
+      p2pManager.sendSprintProgress(
+        totalPairs - remainingPairs,
+        progressPercent,
+        score + pointsEarned,
+        nextCombo,
+        remainingPairs === 0
+      );
     }
 
-    // Check Victory Condition
+    // Check Victory
     if (remainingPairs === 0) {
       if (gameMode === 'SOLO_CAMPAIGN') {
         const { stars } = saveLevelResult(currentLevelId, timerSeconds, score + pointsEarned, newMaxCombo);
@@ -277,18 +261,63 @@ export function App() {
         setCampaignProgress(getCampaignProgress());
         soundFx.playVictoryFanfare();
         setIsWinModalOpen(true);
-      } else if (gameMode === 'SPEED_SPRINT') {
+      } else {
         soundFx.playVictoryFanfare();
         setIsWinModalOpen(true);
       }
     }
-  }, [board, combo, maxCombo, score, totalPairs, view, gameMode, room, myPlayerId, socket, currentLevelId, timerSeconds]);
+  }, [board, combo, maxCombo, score, totalPairs, view, gameMode, room, currentLevelId, timerSeconds, turnTimeRemaining]);
+
+  // AI Bot Turn Loop in Clash Mode
+  useEffect(() => {
+    if (view === 'GAME_MULTIPLAYER' && gameMode === 'CLASH_SHARED' && room?.status === 'PLAYING') {
+      const activePlayer = room.players[room.activePlayerIndex || 0];
+      if (activePlayer && activePlayer.id !== myPlayerId) {
+        botTurnRef.current = setTimeout(() => {
+          const availableMatches = findAvailableMatches(board);
+          if (availableMatches.length > 0) {
+            const match = availableMatches[0];
+            executeMatch(match.tile1, match.tile2);
+          } else {
+            setRoom(r => {
+              if (!r) return null;
+              const nextIdx = ((r.activePlayerIndex || 0) + 1) % r.players.length;
+              return { ...r, activePlayerIndex: nextIdx };
+            });
+            setTurnTimeRemaining(15);
+          }
+        }, 2200);
+      }
+    }
+    return () => {
+      if (botTurnRef.current) clearTimeout(botTurnRef.current);
+    };
+  }, [view, gameMode, room?.activePlayerIndex, room?.status, board, executeMatch, myPlayerId]);
+
+  // Start Solo Campaign Level
+  const startSoloLevel = useCallback((levelId: number) => {
+    setCurrentLevelId(levelId);
+    setGameMode('SOLO_CAMPAIGN');
+    const result = generateSolvableBoard(levelId);
+    setBoard(result.board);
+    setTotalPairs(result.totalPairs);
+    setCurrentLayoutName(result.layoutName);
+    setSelectedTileId(null);
+    setScore(0);
+    setCombo(1);
+    setMaxCombo(1);
+    setTimerSeconds(0);
+    setMoveHistory([]);
+    setHintsLeft(3);
+    setShufflesLeft(3);
+    setIsWinModalOpen(false);
+    setView('GAME_SOLO');
+  }, []);
 
   // Tile Selection & Matching Logic
   const handleTileClick = useCallback((tile: BoardTile) => {
     if (!tile.isFree || tile.isMatched) return;
 
-    // Mode 2 Clash validation: only active player can move
     if (view === 'GAME_MULTIPLAYER' && gameMode === 'CLASH_SHARED' && room) {
       const activePlayer = room.players[room.activePlayerIndex || 0];
       if (activePlayer?.id !== myPlayerId) {
@@ -297,7 +326,6 @@ export function App() {
       }
     }
 
-    // First Tile Selection
     if (!selectedTileId) {
       setSelectedTileId(tile.id);
       setBoard(b => b.map(t => ({
@@ -308,7 +336,6 @@ export function App() {
       return;
     }
 
-    // Clicking same tile deselects it
     if (selectedTileId === tile.id) {
       setSelectedTileId(null);
       setBoard(b => b.map(t => ({ ...t, isSelected: false })));
@@ -318,11 +345,9 @@ export function App() {
     const firstTile = board.find(t => t.id === selectedTileId);
     if (!firstTile) return;
 
-    // Check if Type Matches!
     if (firstTile.typeId === tile.typeId) {
       executeMatch(firstTile, tile);
     } else {
-      // Not a match: switch selection to newly clicked tile
       soundFx.playTileClick();
       setSelectedTileId(tile.id);
       setBoard(b => b.map(t => ({
@@ -333,7 +358,7 @@ export function App() {
     }
   }, [selectedTileId, board, view, gameMode, room, myPlayerId, executeMatch]);
 
-  // Move Selected Free Tile into 4-Slot Storage Dock
+  // Move Selected Tile into 4-Slot Storage Dock
   const handleStoreSelectedTile = useCallback(() => {
     if (!selectedTile || selectedTile.isStored || storedTiles.length >= 4) {
       soundFx.playBlockedTap();
@@ -342,10 +367,8 @@ export function App() {
 
     soundFx.playStoreTile();
 
-    // Check if moving this tile into storage immediately creates a pair with another stored tile!
     const matchingStored = storedTiles.find(t => t.typeId === selectedTile.typeId);
     if (matchingStored) {
-      // Instant auto-match with existing stored tile!
       executeMatch(selectedTile, matchingStored);
       return;
     }
@@ -368,7 +391,6 @@ export function App() {
     setBoard(updatedBoard);
     setSelectedTileId(null);
 
-    // Record move
     setMoveHistory(h => [
       ...h,
       {
@@ -404,7 +426,6 @@ export function App() {
     setBoard(updatedBoard);
     setSelectedTileId(null);
 
-    // Record move
     setMoveHistory(h => [
       ...h,
       {
@@ -485,38 +506,49 @@ export function App() {
     setSelectedTileId(null);
   }, [moveHistory, board]);
 
-  // Multiplayer Actions
-  const handleCreateRoom = (mode: GameMode) => {
-    if (!socket) return;
+  // Multiplayer Room Handlers (Instant 24/7 WebRTC / P2P)
+  const handleCreateRoom = async (mode: GameMode) => {
     setIsConnecting(true);
-    socket.emit('CREATE_ROOM', { mode, profile: playerProfile }, (res: any) => {
-      setIsConnecting(false);
-      if (res.success) {
-        setRoom(res.room);
-        setMyPlayerId(res.playerId);
-      }
+    const newRoom = await p2pManager.createRoom(mode, {
+      name: playerProfile.name || 'Master Player',
+      avatar: playerProfile.avatar || '🀄'
     });
+    setRoom(newRoom);
+    setGameMode(mode);
+    setIsConnecting(false);
   };
 
-  const handleJoinRoom = (code: string) => {
-    if (!socket) return;
+  const handleAddBot = () => {
+    const updated = p2pManager.addBot();
+    if (updated) {
+      setRoom(updated);
+      soundFx.playTileClick();
+    }
+  };
+
+  const handleJoinRoom = async (code: string) => {
     setIsConnecting(true);
-    socket.emit('JOIN_ROOM', { roomId: code, profile: playerProfile }, (res: any) => {
-      setIsConnecting(false);
-      if (res.success) {
-        setRoom(res.room);
-        setMyPlayerId(res.playerId);
-      } else {
-        alert(res.error || 'Failed to join room');
-      }
+    const joinedRoom = await p2pManager.joinRoom(code, {
+      name: playerProfile.name || 'Challenger',
+      avatar: playerProfile.avatar || '🀄'
     });
+    setRoom(joinedRoom);
+    setGameMode(joinedRoom.mode);
+    setIsConnecting(false);
   };
 
   const handleStartMultiplayerGame = () => {
-    if (!socket || !room) return;
-    socket.emit('START_GAME', { roomId: room.roomId, playerId: myPlayerId }, (res: any) => {
-      if (!res.success) alert(res.error || 'Failed to start game');
-    });
+    const result = p2pManager.startGame();
+    if (result) {
+      setBoard(result.board);
+      setTotalPairs(result.board.length / 2);
+      setScore(0);
+      setCombo(1);
+      setTimerSeconds(0);
+      setTurnTimeRemaining(15);
+      setView('GAME_MULTIPLAYER');
+      soundFx.playVictoryFanfare();
+    }
   };
 
   const handleInstallPwa = async () => {
@@ -533,25 +565,38 @@ export function App() {
 
   // Render Current View
   return (
-    <div className={`min-h-screen flex flex-col justify-between font-display theme-${theme} bg-vita-bg text-vita-charcoal transition-colors duration-300`}>
+    <div className={`min-h-screen flex flex-col justify-between font-display theme-${theme} transition-colors duration-300 ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-vita-bg text-vita-charcoal'}`}>
       {/* 1. Main Menu Screen */}
       {view === 'MENU' && (
         <main className="flex-1 flex flex-col items-center justify-center p-4 max-w-xl mx-auto w-full text-center">
+          {/* Top Quick Theme Switcher */}
+          <div className="w-full flex justify-end mb-2">
+            <button
+              onClick={handleToggleTheme}
+              className={`p-2.5 rounded-2xl border flex items-center gap-2 text-xs font-bold transition-all active:scale-95 shadow-sm ${
+                isDarkMode ? 'bg-slate-900 border-slate-700 text-amber-300' : 'bg-white border-[#E8E1D5] text-slate-700'
+              }`}
+            >
+              {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
+              <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
+            </button>
+          </div>
+
           {/* Logo Header */}
           <div className="relative mb-6">
-            <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-emerald-700 via-emerald-800 to-teal-950 flex items-center justify-center text-5xl shadow-2xl mx-auto border-4 border-[#FAF7F2] ring-4 ring-emerald-600/30">
+            <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-emerald-600 via-emerald-800 to-teal-950 flex items-center justify-center text-5xl shadow-2xl mx-auto border-4 border-white/20 ring-4 ring-emerald-500/30">
               🀄
             </div>
             <div className="absolute -bottom-2 -right-2 bg-amber-400 text-amber-950 font-black text-xs px-2.5 py-0.5 rounded-full border-2 border-white shadow">
-              4-CARD DOCK
+              ONLINE P2P
             </div>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl font-black text-vita-wood tracking-tight">
+          <h1 className="text-4xl sm:text-5xl font-black tracking-tight">
             Vita Mahjong Pro
           </h1>
-          <p className="text-sm font-semibold text-emerald-800/80 mt-1 max-w-md mx-auto">
-            Tactical 4-Card Holding Dock • 6-Layer Architectures • Real-Time Multiplayer
+          <p className="text-sm font-semibold opacity-75 mt-1 max-w-md mx-auto">
+            3D Multi-Layer Solitaire • 4-Card Holding Dock • 24/7 Online P2P Arena
           </p>
 
           {/* Menu Action Cards */}
@@ -586,8 +631,8 @@ export function App() {
                   ⚔️
                 </div>
                 <div>
-                  <div className="text-lg leading-tight">Multiplayer Arena</div>
-                  <div className="text-xs font-normal text-amber-200">Turn Clash & Parallel Speed Sprint</div>
+                  <div className="text-lg leading-tight">Multiplayer Arena (Online P2P)</div>
+                  <div className="text-xs font-normal text-amber-200">24/7 Free Room Codes, Turn Clash & Speed Sprint</div>
                 </div>
               </div>
               <Swords className="w-6 h-6 text-amber-200" />
@@ -597,9 +642,11 @@ export function App() {
             <div className="grid grid-cols-2 gap-3 mt-2">
               <button
                 onClick={() => setIsSettingsOpen(true)}
-                className="py-3.5 px-4 rounded-2xl bg-white hover:bg-vita-sage border border-[#E8E1D5] text-vita-wood font-bold text-sm shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2"
+                className={`py-3.5 px-4 rounded-2xl border font-bold text-sm shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2 ${
+                  isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100 hover:bg-slate-800' : 'bg-white border-[#E8E1D5] text-vita-wood hover:bg-vita-sage'
+                }`}
               >
-                <Settings className="w-4 h-4 text-emerald-700" />
+                <Settings className="w-4 h-4 text-emerald-600" />
                 <span>Settings</span>
               </button>
 
@@ -614,9 +661,11 @@ export function App() {
               ) : (
                 <button
                   onClick={() => setIsSettingsOpen(true)}
-                  className="py-3.5 px-4 rounded-2xl bg-white hover:bg-vita-sage border border-[#E8E1D5] text-vita-wood font-bold text-sm shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2"
+                  className={`py-3.5 px-4 rounded-2xl border font-bold text-sm shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2 ${
+                    isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100 hover:bg-slate-800' : 'bg-white border-[#E8E1D5] text-vita-wood hover:bg-vita-sage'
+                  }`}
                 >
-                  <Trophy className="w-4 h-4 text-amber-600" />
+                  <Trophy className="w-4 h-4 text-amber-500" />
                   <span>Profile</span>
                 </button>
               )}
@@ -642,8 +691,10 @@ export function App() {
           room={room}
           playerId={myPlayerId}
           isConnecting={isConnecting}
+          isDarkMode={isDarkMode}
           onCreateRoom={handleCreateRoom}
           onJoinRoom={handleJoinRoom}
+          onAddBot={handleAddBot}
           onStartGame={handleStartMultiplayerGame}
           onBackToMenu={() => {
             setRoom(null);
@@ -652,7 +703,7 @@ export function App() {
         />
       )}
 
-      {/* 4. Active Game Screen (Solo or Multiplayer) */}
+      {/* 4. Active Game Screen */}
       {(view === 'GAME_SOLO' || view === 'GAME_MULTIPLAYER') && (
         <div className="flex-1 flex flex-col justify-between h-full">
           {/* Top HUD */}
@@ -672,12 +723,16 @@ export function App() {
               totalPairs={totalPairs}
               combo={combo}
               soundEnabled={soundEnabled}
+              isDarkMode={isDarkMode}
+              is3DView={is3DView}
               onToggleSound={() => {
                 const next = !soundEnabled;
                 setSoundEnabled(next);
                 saveSound(next);
                 soundFx.setSoundEnabled(next);
               }}
+              onToggleTheme={handleToggleTheme}
+              onToggle3DView={() => setIs3DView(v => !v)}
               onPauseClick={() => setIsSettingsOpen(true)}
               onBackClick={() => setView(gameMode === 'SOLO_CAMPAIGN' ? 'CAMPAIGN_MAP' : 'MULTIPLAYER_LOBBY')}
             />
@@ -698,6 +753,8 @@ export function App() {
                 board={board}
                 onTileClick={handleTileClick}
                 scale={boardScale}
+                is3DView={is3DView}
+                isDarkMode={isDarkMode}
               />
             </div>
 
@@ -706,6 +763,7 @@ export function App() {
               storedTiles={storedTiles}
               maxCapacity={4}
               selectedTileId={selectedTileId}
+              isDarkMode={isDarkMode}
               onTileClick={handleTileClick}
               onStoreSelectedTile={handleStoreSelectedTile}
               onRecallTile={handleRecallTile}
