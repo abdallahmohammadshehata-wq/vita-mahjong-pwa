@@ -1,6 +1,7 @@
 import React from 'react';
 import { BoardTile } from '../../types/mahjong';
 import { soundFx } from '../../utils/audio';
+import { TileGlyph } from './TileGlyph';
 
 interface MahjongTileProps {
   tile: BoardTile;
@@ -8,14 +9,24 @@ interface MahjongTileProps {
   scale?: number;
   tileSize?: { width: number; height: number };
   isDarkMode?: boolean;
+  minX?: number;
+  minY?: number;
+  paddingLeft?: number;
+  paddingTop?: number;
+  dimBlocked?: boolean;
 }
 
 export const MahjongTile: React.FC<MahjongTileProps> = ({
   tile,
   onTileClick,
   scale = 1,
-  tileSize = { width: 54, height: 72 },
-  isDarkMode = false
+  tileSize = { width: 56, height: 72 },
+  isDarkMode = false,
+  minX = 0,
+  minY = 0,
+  paddingLeft = 32,
+  paddingTop = 32,
+  dimBlocked = true
 }) => {
   const { definition, x, y, layer, isFree, isSelected, isHinted, isMatched, isStored, specialType } = tile;
 
@@ -68,18 +79,22 @@ export const MahjongTile: React.FC<MahjongTileProps> = ({
   const colors = getSuitStyles();
 
   // True 3D Layer Elevation Offset:
-  // Each higher layer is stepped up and slightly left, plus elevated zIndex
-  const layerOffsetX = layer * 5;
-  const layerOffsetY = layer * 6;
+  // Each higher layer is stepped slightly up and left to produce natural physical depth
+  const layerOffsetX = layer * 4;
+  const layerOffsetY = layer * 5;
 
-  const posX = (x * (tileSize.width / 2)) - layerOffsetX;
-  const posY = (y * (tileSize.height / 2)) - layerOffsetY;
-  const zIndex = layer * 50 + Math.floor(y * 4) + Math.floor(x * 2);
+  const posX = paddingLeft + ((x - minX) * (tileSize.width / 2)) - layerOffsetX;
+  const posY = paddingTop + ((y - minY) * (tileSize.height / 2)) - layerOffsetY;
+  
+  // Strict z-index hierarchy:
+  // Higher layers always sit on top of lower layers
+  // Tiles lower on screen (larger Y) overlap tiles behind them
+  const zIndex = (layer * 200) + Math.floor(y * 8) + Math.floor(x * 2);
 
   const layerShadowClass = 
-    layer >= 3 ? 'tile-layer-3' :
-    layer === 2 ? 'tile-layer-2' :
-    layer === 1 ? 'tile-layer-1' : 'tile-layer-0';
+    layer >= 3 ? 'tile-elev-3' :
+    layer === 2 ? 'tile-elev-2' :
+    layer === 1 ? 'tile-elev-1' : 'tile-elev-0';
 
   return (
     <div
@@ -90,46 +105,48 @@ export const MahjongTile: React.FC<MahjongTileProps> = ({
         top: `${posY}px`,
         width: `${tileSize.width}px`,
         height: `${tileSize.height}px`,
-        zIndex: isSelected ? zIndex + 300 : isHinted ? zIndex + 200 : zIndex,
-        transform: `scale(${scale}) ${isSelected ? 'translateY(-10px) translateZ(20px)' : ''}`,
-        transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease'
+        zIndex: isSelected ? zIndex + 1000 : isHinted ? zIndex + 500 : zIndex,
+        transform: `scale(${scale}) ${isSelected ? 'translateY(-12px) translateZ(30px)' : ''}`,
+        transition: 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, filter 0.2s ease'
       }}
       className={`
         cursor-pointer rounded-xl select-none group ${layerShadowClass}
+        ${dimBlocked && !isFree ? 'tile-blocked-dimmed' : ''}
+        ${dimBlocked && isFree && !isSelected ? 'tile-free-glow' : ''}
         ${isSelected ? 'ring-4 ring-amber-400 shadow-tile-selected animate-bounce-short z-50' : ''}
         ${isHinted && !isSelected ? 'ring-4 ring-emerald-500 shadow-tile-hint animate-pulse' : ''}
         ${specialType === 'gold' ? 'animate-gold-glow' : ''}
       `}
       title={`${definition.nameEn} (${definition.label}) - Layer ${layer + 1} - ${isFree ? 'Free to match' : 'Blocked'}`}
     >
-      {/* 3D Tile Thickness Side/Base (Green Jade or Dark Obsidian back) */}
+      {/* 3D Tile Thickness Side/Base (Green Bamboo / Jade backing) */}
       <div 
         className={`
-          absolute inset-0 rounded-xl translate-x-[4px] translate-y-[6px] shadow-lg pointer-events-none border
+          absolute inset-0 rounded-xl translate-x-[3.5px] translate-y-[5px] pointer-events-none border
           ${isDarkMode
             ? specialType === 'gold' 
-              ? 'bg-gradient-to-br from-amber-700 to-yellow-950 border-amber-500/50' 
-              : 'bg-gradient-to-br from-emerald-900 to-slate-950 border-emerald-800/40'
+              ? 'bg-gradient-to-br from-amber-700 to-yellow-950 border-amber-600/50' 
+              : 'bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-950 border-emerald-900/60'
             : specialType === 'gold' 
-              ? 'bg-gradient-to-br from-amber-600 via-amber-700 to-yellow-900 border-amber-400' 
-              : 'bg-gradient-to-br from-emerald-800 via-emerald-900 to-teal-950 border-emerald-700'
+              ? 'bg-gradient-to-br from-amber-600 via-amber-700 to-yellow-900 border-amber-500' 
+              : 'bg-gradient-to-br from-[#1b6b3e] via-[#14532d] to-[#0a311b] border-[#166534]'
           }
         `}
       />
 
-      {/* Front Face of Mahjong Tile */}
+      {/* Front Face of Mahjong Tile (Porcelain Ivory with beveled highlight) */}
       <div 
         className={`
-          relative w-full h-full rounded-xl border flex flex-col items-center justify-between p-1.5 shadow-inner transition-colors
+          relative w-full h-full rounded-xl flex flex-col items-center justify-between p-1.5 transition-colors
           ${isDarkMode 
             ? specialType === 'gold'
-              ? 'bg-gradient-to-b from-amber-950 via-yellow-900 to-amber-900 border-amber-400 text-amber-100'
-              : 'bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 border-slate-700 text-slate-100'
+              ? 'bg-gradient-to-b from-amber-950 via-yellow-900 to-amber-900 border border-amber-400 text-amber-100 shadow-inner'
+              : 'tile-ivory-face-dark text-slate-100'
             : specialType === 'gold'
-              ? 'bg-gradient-to-b from-amber-50 via-amber-100 to-yellow-100 border-amber-400 text-amber-950'
-              : 'bg-gradient-to-b from-white via-[#FAF7F2] to-[#ECE5D8] border-[#D5C9B8] text-vita-charcoal'
+              ? 'bg-gradient-to-b from-amber-50 via-amber-100 to-yellow-100 border border-amber-400 text-amber-950 shadow-inner'
+              : 'tile-ivory-face text-vita-charcoal'
           }
-          ${!isFree ? 'brightness-[0.82] opacity-90' : 'hover:brightness-105'}
+          ${!isFree ? '' : 'hover:brightness-105 active:scale-98'}
         `}
       >
         {/* Top Header Row */}
@@ -148,7 +165,7 @@ export const MahjongTile: React.FC<MahjongTileProps> = ({
               2X
             </span>
           ) : (
-            <span className="text-[9px] font-mono opacity-50">
+            <span className="text-[9px] font-mono font-bold opacity-40">
               L{layer + 1}
             </span>
           )}
@@ -156,70 +173,20 @@ export const MahjongTile: React.FC<MahjongTileProps> = ({
 
         {/* Center Main Symbol */}
         <div className="flex-1 flex items-center justify-center my-[-2px]">
-          {definition.suit === 'character' && (
-            <div className="flex flex-col items-center leading-none">
-              <span 
-                className="text-[24px] font-chinese font-black tracking-tight drop-shadow-xs"
-                style={{ color: colors.charColor }}
-              >
-                {definition.symbol}
-              </span>
-              <span className="text-[12px] font-chinese font-bold text-red-600">
-                萬
-              </span>
-            </div>
-          )}
-
-          {definition.suit === 'bamboo' && (
-            <div className="flex flex-col items-center leading-none">
-              <span 
-                className="text-[22px] font-black tracking-tight drop-shadow-xs"
-                style={{ color: colors.charColor }}
-              >
-                {definition.value === 1 ? '🦚' : `${definition.value}🎋`}
-              </span>
-            </div>
-          )}
-
-          {definition.suit === 'circle' && (
-            <div className="flex flex-col items-center leading-none">
-              <span 
-                className="text-[20px] font-black tracking-tight drop-shadow-xs"
-                style={{ color: colors.charColor }}
-              >
-                {definition.value === 1 ? '🎯' : `${definition.value}⚪`}
-              </span>
-            </div>
-          )}
-
-          {(definition.suit === 'wind' || definition.suit === 'dragon' || definition.suit === 'season' || definition.suit === 'flower') && (
-            <div className="flex flex-col items-center justify-center">
-              <span 
-                className="text-[26px] font-chinese font-black leading-none drop-shadow-xs"
-                style={{ color: colors.charColor }}
-              >
-                {definition.symbol}
-              </span>
-              <span className="text-[9px] font-bold mt-0.5 tracking-tight truncate max-w-[46px] opacity-80">
-                {definition.label}
-              </span>
-            </div>
-          )}
+          <TileGlyph definition={definition} charColor={colors.charColor} />
         </div>
 
         {/* Bottom Accent Bar */}
         <div className="w-full flex justify-center pb-0.5">
           <div 
-            className="h-[3px] w-7 rounded-full shadow-xs opacity-75"
+            className="h-[3px] w-7 rounded-full shadow-xs opacity-80"
             style={{ backgroundColor: colors.charColor }}
           />
         </div>
 
-        {/* Subtle Blocked Indicator */}
-        {!isFree && (
-          <div className="absolute inset-0 rounded-xl bg-black/15 pointer-events-none flex items-start justify-end p-1">
-            <div className="w-2 h-2 rounded-full bg-black/30 ring-1 ring-white/30" />
-          </div>
+        {/* Blocked Indicator dot when dimming is active */}
+        {dimBlocked && !isFree && (
+          <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-slate-900/40 ring-1 ring-white/30 pointer-events-none" />
         )}
       </div>
     </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { Play, Swords, Zap, Settings, Trophy, HelpCircle, Star, Sparkles, Download, ArrowDownToLine, Sun, Moon, Layers } from 'lucide-react';
-import { BoardTile, GameTheme, LevelProgress, MoveRecord } from './types/mahjong';
+import { BoardTile, GameTheme, BoardBackground, LevelProgress, MoveRecord } from './types/mahjong';
 import { GameMode, RoomState, PlayerInfo } from './types/multiplayer';
 import { generateSolvableBoard, reshuffleRemainingTiles } from './utils/generator';
 import { updateBoardFreeStates, getHintPair, findAvailableMatches } from './utils/solver';
@@ -14,7 +14,11 @@ import {
   saveTheme, 
   getSavedSound, 
   saveSound, 
-  getSavedPlayerProfile 
+  getSavedPlayerProfile,
+  getSavedBackground,
+  saveBackground,
+  getSavedDimBlocked,
+  saveDimBlocked
 } from './utils/storage';
 
 import { GameBoard } from './components/board/GameBoard';
@@ -34,6 +38,8 @@ export function App() {
   // Navigation & Profile
   const [view, setView] = useState<ViewState>('MENU');
   const [theme, setTheme] = useState<GameTheme>(getSavedTheme());
+  const [background, setBackground] = useState<BoardBackground>(getSavedBackground());
+  const [dimBlocked, setDimBlocked] = useState<boolean>(getSavedDimBlocked());
   const [soundEnabled, setSoundEnabled] = useState<boolean>(getSavedSound());
   const [playerProfile, setPlayerProfile] = useState(getSavedPlayerProfile());
   const [is3DView, setIs3DView] = useState<boolean>(true);
@@ -563,6 +569,34 @@ export function App() {
 
   const remainingPairs = board.filter(t => !t.isMatched).length / 2;
 
+  const availableMatchesCount = useMemo(() => {
+    return findAvailableMatches(board).length;
+  }, [board]);
+
+  const handleChangeBackground = (newBg: BoardBackground) => {
+    setBackground(newBg);
+    saveBackground(newBg);
+  };
+
+  const handleToggleDimBlocked = () => {
+    setDimBlocked(d => {
+      const next = !d;
+      saveDimBlocked(next);
+      return next;
+    });
+  };
+
+  const getBackgroundClass = () => {
+    switch (background) {
+      case 'teak-wood': return 'bg-teak-wood';
+      case 'midnight-silk': return 'bg-midnight-silk';
+      case 'tatami': return 'bg-tatami';
+      case 'misty-mountain': return 'bg-misty-mountain';
+      case 'zen-felt':
+      default: return 'bg-zen-felt';
+    }
+  };
+
   // Render Current View
   return (
     <div className={`min-h-screen flex flex-col justify-between font-display theme-${theme} transition-colors duration-300 ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-vita-bg text-vita-charcoal'}`}>
@@ -722,9 +756,12 @@ export function App() {
               pairsRemaining={remainingPairs}
               totalPairs={totalPairs}
               combo={combo}
+              availableMatches={availableMatchesCount}
               soundEnabled={soundEnabled}
               isDarkMode={isDarkMode}
               is3DView={is3DView}
+              dimBlocked={dimBlocked}
+              currentBackground={background}
               onToggleSound={() => {
                 const next = !soundEnabled;
                 setSoundEnabled(next);
@@ -733,13 +770,15 @@ export function App() {
               }}
               onToggleTheme={handleToggleTheme}
               onToggle3DView={() => setIs3DView(v => !v)}
+              onToggleDimBlocked={handleToggleDimBlocked}
+              onChangeBackground={handleChangeBackground}
               onPauseClick={() => setIsSettingsOpen(true)}
               onBackClick={() => setView(gameMode === 'SOLO_CAMPAIGN' ? 'CAMPAIGN_MAP' : 'MULTIPLAYER_LOBBY')}
             />
           )}
 
-          {/* Center Play Area */}
-          <div className="flex-1 flex flex-col items-center justify-center relative w-full overflow-hidden p-2">
+          {/* Center Play Area with Atmospheric Table Background */}
+          <div className={`flex-1 flex flex-col items-center justify-between relative w-full overflow-hidden transition-all duration-500 ${getBackgroundClass()}`}>
             {/* Speed Sprint Sidebar for multiplayer opponents */}
             {view === 'GAME_MULTIPLAYER' && gameMode === 'SPEED_SPRINT' && room && (
               <div className="w-full md:w-64 p-2">
@@ -748,13 +787,19 @@ export function App() {
             )}
 
             {/* 3D Mahjong Board */}
-            <div className="flex-1 w-full h-full flex items-center justify-center min-h-[380px]">
+            <div className="flex-1 w-full h-full flex items-center justify-center min-h-[350px]">
               <GameBoard
                 board={board}
                 onTileClick={handleTileClick}
                 scale={boardScale}
                 is3DView={is3DView}
                 isDarkMode={isDarkMode}
+                dimBlocked={dimBlocked}
+                onToggle3DView={() => setIs3DView(v => !v)}
+                onToggleDimBlocked={handleToggleDimBlocked}
+                onResetZoom={() => setBoardScale(1)}
+                onZoomIn={() => setBoardScale(s => Math.min(1.5, Math.round((s + 0.1) * 10) / 10))}
+                onZoomOut={() => setBoardScale(s => Math.max(0.6, Math.round((s - 0.1) * 10) / 10))}
               />
             </div>
 
@@ -778,11 +823,12 @@ export function App() {
             undosLeft={moveHistory.length}
             canUndo={moveHistory.length > 0 && (gameMode === 'SOLO_CAMPAIGN' || gameMode === 'SPEED_SPRINT')}
             scale={boardScale}
+            isDarkMode={isDarkMode}
             onHint={handleHint}
             onShuffle={handleShuffle}
             onUndo={handleUndo}
-            onZoomIn={() => setBoardScale(s => Math.min(1.5, s + 0.1))}
-            onZoomOut={() => setBoardScale(s => Math.max(0.6, s - 0.1))}
+            onZoomIn={() => setBoardScale(s => Math.min(1.5, Math.round((s + 0.1) * 10) / 10))}
+            onZoomOut={() => setBoardScale(s => Math.max(0.6, Math.round((s - 0.1) * 10) / 10))}
             onResetZoom={() => setBoardScale(1)}
           />
         </div>

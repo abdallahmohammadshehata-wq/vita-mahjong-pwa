@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Swords, Zap, Users, Copy, Check, Play, ArrowLeft, RefreshCw, Bot, UserPlus } from 'lucide-react';
+import { Swords, Zap, Users, Copy, Check, Play, ArrowLeft, RefreshCw, Bot, UserPlus, Crown, Layers } from 'lucide-react';
 import { GameMode, RoomState, PlayerInfo } from '../../types/multiplayer';
 
 interface LobbyViewProps {
@@ -236,17 +236,18 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                 >
                   <div className="flex items-center gap-2.5">
                     <div
-                      className="w-9 h-9 rounded-xl flex items-center justify-center text-lg text-white font-bold shadow-xs"
+                      className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold shadow-xs"
                       style={{ backgroundColor: p.avatarColor || '#2D6A4F' }}
                     >
-                      {p.avatar || '🀄'}
+                      <Layers className="w-4 h-4 text-white" />
                     </div>
                     <div>
                       <div className="text-sm font-bold flex items-center gap-1.5">
                         <span>{p.name}</span>
                         {p.isHost && (
-                          <span className="text-[9px] bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200 font-bold px-1.5 py-0.2 rounded">
-                            Host 👑
+                          <span className="text-[9px] bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200 font-bold px-1.5 py-0.5 rounded inline-flex items-center gap-1">
+                            <Crown className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
+                            Host
                           </span>
                         )}
                         {p.id === playerId && (

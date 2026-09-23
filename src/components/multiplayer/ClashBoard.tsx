@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, Trophy, Crown, Flame } from 'lucide-react';
+import { Clock, Trophy, Crown, Flame, Layers, Gamepad2 } from 'lucide-react';
 import { PlayerInfo, RoomState } from '../../types/multiplayer';
 
 interface ClashHUDProps {
@@ -27,12 +27,12 @@ export const ClashHUD: React.FC<ClashHUDProps> = ({
           {/* Active Player Info */}
           <div className="flex items-center gap-2.5">
             <div
-              className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl text-white font-bold shadow-md transition-transform ${
+              className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white font-bold shadow-md transition-transform ${
                 isMyTurn ? 'ring-4 ring-amber-400 scale-105 animate-bounce-short' : ''
               }`}
               style={{ backgroundColor: activePlayer?.avatarColor || '#D99B26' }}
             >
-              {activePlayer?.avatar || '🀄'}
+              <Layers className="w-5 h-5 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
@@ -89,7 +89,9 @@ export const ClashHUD: React.FC<ClashHUDProps> = ({
                     : 'bg-gray-50 border-gray-200 text-gray-700'
                 }`}
               >
-                <span className="text-sm">{p.avatar || '🎮'}</span>
+                <span className="p-1 rounded bg-amber-500/20 text-amber-700">
+                  <Gamepad2 className="w-3.5 h-3.5" />
+                </span>
                 <span className="font-semibold truncate max-w-[90px]">{p.name}</span>
                 <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/50">
                   {p.score} pts

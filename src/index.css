@@ -15,7 +15,7 @@ html, body, #root {
   user-select: none;
 }
 
-/* 1. Theme Color Sets */
+/* 1. Theme Color Sets & Atmospheric Backgrounds */
 .theme-ivory, .theme-light {
   --bg-primary: #FAF7F2;
   --bg-secondary: #F4EFE6;
@@ -52,6 +52,51 @@ html, body, #root {
   --hud-bg: rgba(15, 23, 42, 0.92);
 }
 
+/* Atmospheric Board Playfield Backgrounds */
+.bg-zen-felt {
+  background-color: #103823;
+  background-image: 
+    radial-gradient(circle at 50% 40%, rgba(34, 197, 94, 0.12) 0%, transparent 65%),
+    radial-gradient(ellipse at 50% 50%, #174d30 0%, #103823 55%, #092114 90%, #05130b 100%),
+    radial-gradient(circle, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 18px 18px;
+  box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.7);
+}
+
+.bg-teak-wood {
+  background-color: #2c1608;
+  background-image: 
+    radial-gradient(circle at 50% 35%, rgba(245, 158, 11, 0.15) 0%, transparent 65%),
+    repeating-linear-gradient(90deg, #371b0b, #371b0b 3px, #2f1709 3px, #2f1709 45px, #251206 45px, #251206 48px, #3b1e0d 48px, #3b1e0d 90px);
+  box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.85);
+}
+
+.bg-midnight-silk {
+  background-color: #0b1120;
+  background-image: 
+    radial-gradient(circle at 50% 30%, #1e293b 0%, #0f172a 60%, #020617 100%),
+    radial-gradient(circle, rgba(245, 158, 11, 0.08) 1px, transparent 1px);
+  background-size: 100% 100%, 24px 24px;
+  box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.8);
+}
+
+.bg-tatami {
+  background-color: #8c8261;
+  background-image: 
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.12) 0%, transparent 70%),
+    repeating-linear-gradient(0deg, #998f6d, #998f6d 2px, #7a7153 2px, #7a7153 6px),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.04) 0px, rgba(0, 0, 0, 0.04) 2px, transparent 2px, transparent 16px);
+  box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.65);
+}
+
+.bg-misty-mountain {
+  background-color: #17212b;
+  background-image: 
+    radial-gradient(circle at 50% 20%, #263847 0%, #17212b 60%, #0c1219 100%),
+    radial-gradient(circle at 20% 80%, rgba(255, 255, 255, 0.04) 0%, transparent 50%);
+  box-shadow: inset 0 0 110px rgba(0, 0, 0, 0.75);
+}
+
 /* 2. 3D Board Perspective Utilities */
 .perspective-board {
   perspective: 1200px;
@@ -69,39 +114,69 @@ html, body, #root {
   transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
-/* 3. True 3D Tile Layer Extrusion Shadows */
-.tile-layer-0 {
+/* 3. True 3D Tile Materials & Physical Layer Shadows */
+.tile-ivory-face {
+  background: linear-gradient(175deg, #ffffff 0%, #faf8f5 45%, #f1e9dc 100%);
+  border: 1px solid #dcd3c3;
   box-shadow: 
-    1px 2px 0px #C2B49F,
-    2px 3px 0px #B5A58D,
-    3px 4px 6px rgba(0, 0, 0, 0.22);
+    inset 0 1px 1px rgba(255, 255, 255, 0.95), 
+    inset 0 -2px 4px rgba(185, 165, 135, 0.25);
 }
 
-.tile-layer-1 {
+.tile-ivory-face-dark {
+  background: linear-gradient(175deg, #1e293b 0%, #172033 45%, #0f172a 100%);
+  border: 1px solid #475569;
   box-shadow: 
-    1px 2px 0px #BAAA92,
-    2px 4px 0px #A9977E,
-    3px 5px 0px #97856B,
-    5px 8px 12px rgba(0, 0, 0, 0.28);
+    inset 0 1px 1px rgba(255, 255, 255, 0.2), 
+    inset 0 -2px 4px rgba(0, 0, 0, 0.5);
 }
 
-.tile-layer-2 {
+.tile-elev-0 {
   box-shadow: 
-    1px 2px 0px #B3A187,
-    2px 4px 0px #A18D71,
-    3px 6px 0px #8F7B5E,
-    4px 7px 0px #7E6A4D,
-    7px 12px 16px rgba(0, 0, 0, 0.35);
+    1px 2px 0px #09331f,
+    2px 3px 0px #052315,
+    3px 4px 6px rgba(0, 0, 0, 0.32);
 }
 
-.tile-layer-3, .tile-layer-4, .tile-layer-5 {
+.tile-elev-1 {
   box-shadow: 
-    1px 2px 0px #AB977B,
-    2px 4px 0px #988365,
-    3px 6px 0px #857051,
-    4px 8px 0px #725D3E,
-    5px 10px 0px #5F4A2C,
-    10px 16px 24px rgba(0, 0, 0, 0.45);
+    1px 2px 0px #09331f,
+    2px 4px 0px #062617,
+    3px 5px 0px #041b10,
+    5px 8px 12px rgba(0, 0, 0, 0.4);
+}
+
+.tile-elev-2 {
+  box-shadow: 
+    1px 2px 0px #09331f,
+    2px 4px 0px #062617,
+    3px 6px 0px #052013,
+    4px 7px 0px #03170d,
+    8px 12px 18px rgba(0, 0, 0, 0.48);
+}
+
+.tile-elev-3, .tile-elev-4, .tile-elev-5 {
+  box-shadow: 
+    1px 2px 0px #09331f,
+    2px 4px 0px #062617,
+    3px 6px 0px #052013,
+    4px 8px 0px #041c10,
+    5px 10px 0px #02120a,
+    11px 16px 24px rgba(0, 0, 0, 0.58);
+}
+
+/* Senior Accessibility High-Contrast / Dimmed Modes */
+.tile-blocked-dimmed {
+  filter: brightness(0.8) contrast(0.92) saturate(0.75);
+  opacity: 0.88;
+}
+
+.tile-blocked-dimmed:hover {
+  filter: brightness(0.85) contrast(0.95) saturate(0.82);
+}
+
+.tile-free-glow {
+  filter: drop-shadow(0 0 5px rgba(52, 211, 153, 0.35));
 }
 
 /* 4. Animations */
@@ -138,4 +213,113 @@ html, body, #root {
 
 .pt-safe {
   padding-top: env(safe-area-inset-top, 12px);
+}
+
+/* ========================================
+   RESPONSIVE BREAKPOINTS
+   ======================================== */
+
+/* CSS custom properties for responsive tile sizing */
+:root {
+  --tile-w: 38px;
+  --tile-h: 50px;
+  --tile-font: 16px;
+  --board-perspective: 800px;
+  --board-max-width: 100%;
+}
+
+/* Small phones (< 380px) */
+@media (max-width: 380px) {
+  :root {
+    --tile-w: 30px;
+    --tile-h: 42px;
+    --tile-font: 13px;
+    --board-perspective: 700px;
+  }
+  .perspective-board {
+    perspective: var(--board-perspective);
+  }
+}
+
+/* Default mobile (380px - 639px) */
+@media (min-width: 380px) and (max-width: 639px) {
+  :root {
+    --tile-w: 38px;
+    --tile-h: 50px;
+    --tile-font: 16px;
+    --board-perspective: 800px;
+  }
+  .perspective-board {
+    perspective: var(--board-perspective);
+  }
+}
+
+/* Tablet (640px+) */
+@media (min-width: 640px) {
+  :root {
+    --tile-w: 46px;
+    --tile-h: 60px;
+    --tile-font: 19px;
+    --board-perspective: 1000px;
+    --board-max-width: 720px;
+  }
+  .perspective-board {
+    perspective: var(--board-perspective);
+    max-width: var(--board-max-width);
+    margin: 0 auto;
+  }
+}
+
+/* Tablet landscape / small desktop (768px+) */
+@media (min-width: 768px) {
+  :root {
+    --tile-w: 50px;
+    --tile-h: 64px;
+    --tile-font: 20px;
+    --board-perspective: 1100px;
+    --board-max-width: 860px;
+  }
+}
+
+/* Desktop (1024px+) */
+@media (min-width: 1024px) {
+  :root {
+    --tile-w: 54px;
+    --tile-h: 70px;
+    --tile-font: 22px;
+    --board-perspective: 1400px;
+    --board-max-width: 960px;
+  }
+  .perspective-board {
+    perspective: var(--board-perspective);
+    max-width: var(--board-max-width);
+    margin: 0 auto;
+  }
+  /* Desktop: center game container */
+  #root {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+}
+
+/* Ultrawide (1440px+) */
+@media (min-width: 1440px) {
+  :root {
+    --tile-w: 58px;
+    --tile-h: 76px;
+    --tile-font: 24px;
+    --board-perspective: 1600px;
+    --board-max-width: 1080px;
+  }
+}
+
+/* iOS safe area support */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  html, body {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
 }

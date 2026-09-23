@@ -1,4 +1,4 @@
-import { LevelProgress, GameTheme } from '../types/mahjong';
+import { LevelProgress, GameTheme, BoardBackground } from '../types/mahjong';
 
 const STORAGE_KEYS = {
   CAMPAIGN_PROGRESS: 'vita_mahjong_campaign_v1',
@@ -6,6 +6,8 @@ const STORAGE_KEYS = {
   PLAYER_AVATAR: 'vita_mahjong_player_avatar',
   PLAYER_COLOR: 'vita_mahjong_player_color',
   THEME: 'vita_mahjong_theme',
+  BACKGROUND: 'vita_mahjong_bg',
+  DIM_BLOCKED: 'vita_mahjong_dim_blocked',
   SOUND_ENABLED: 'vita_mahjong_sound',
   CURRENT_LEVEL: 'vita_mahjong_cur_level'
 };
@@ -121,4 +123,20 @@ export function getSavedSound(): boolean {
 
 export function saveSound(enabled: boolean) {
   localStorage.setItem(STORAGE_KEYS.SOUND_ENABLED, String(enabled));
+}
+
+export function getSavedBackground(): BoardBackground {
+  return (localStorage.getItem(STORAGE_KEYS.BACKGROUND) as BoardBackground) || 'zen-felt';
+}
+
+export function saveBackground(bg: BoardBackground) {
+  localStorage.setItem(STORAGE_KEYS.BACKGROUND, bg);
+}
+
+export function getSavedDimBlocked(): boolean {
+  return localStorage.getItem(STORAGE_KEYS.DIM_BLOCKED) !== 'false';
+}
+
+export function saveDimBlocked(dim: boolean) {
+  localStorage.setItem(STORAGE_KEYS.DIM_BLOCKED, String(dim));
 }

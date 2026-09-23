@@ -1,7 +1,8 @@
 import React from 'react';
 import { BoardTile } from '../../types/mahjong';
-import { ArrowDownToLine, Undo2, AlertCircle } from 'lucide-react';
+import { ArrowDownToLine, Undo2, AlertCircle, Layers } from 'lucide-react';
 import { soundFx } from '../../utils/audio';
+import { TileGlyph } from './TileGlyph';
 
 interface StorageDockProps {
   storedTiles: BoardTile[];
@@ -39,8 +40,8 @@ export const StorageDock: React.FC<StorageDockProps> = ({
       {/* Storage Header & Status Banner */}
       <div className="flex items-center justify-between mb-1 px-1">
         <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-emerald-700/20 text-emerald-800 dark:text-emerald-300 text-sm font-black">
-            📥
+          <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-emerald-700/20 text-emerald-800 dark:text-emerald-300">
+            <ArrowDownToLine className="w-4 h-4" />
           </div>
           <span className="text-xs sm:text-sm font-black tracking-tight opacity-90">
             Holding Rack (Up to 4 Cards)
@@ -102,9 +103,9 @@ export const StorageDock: React.FC<StorageDockProps> = ({
                 `}
                 title={canStore ? 'Click to park selected tile in this slot' : `Storage Slot ${slotIndex + 1}`}
               >
-                <span className="text-xl opacity-30">
-                  {canStore ? '📥' : '🀄'}
-                </span>
+                <div className="text-xl opacity-30 flex items-center justify-center">
+                  {canStore ? <ArrowDownToLine className="w-5 h-5 text-amber-500" /> : <Layers className="w-5 h-5 text-current" />}
+                </div>
                 <span className="text-[10px] font-bold opacity-50 mt-0.5">
                   Slot {slotIndex + 1}
                 </span>
@@ -166,12 +167,7 @@ export const StorageDock: React.FC<StorageDockProps> = ({
 
               {/* Main Symbol */}
               <div className="flex-1 flex flex-col items-center justify-center my-[-2px]">
-                <span className="text-2xl font-chinese font-black tracking-tight">
-                  {tile.definition.symbol}
-                </span>
-                <span className="text-[9px] font-bold opacity-75 truncate max-w-[50px]">
-                  {tile.definition.label}
-                </span>
+                <TileGlyph definition={tile.definition} charColor="#15803D" />
               </div>
 
               {/* Action Prompt */}

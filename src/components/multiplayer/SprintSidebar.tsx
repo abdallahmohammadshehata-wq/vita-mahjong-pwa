@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, Trophy, Crown, Flame, CheckCircle } from 'lucide-react';
+import { Zap, Trophy, Crown, Flame, CheckCircle, Medal, Layers } from 'lucide-react';
 import { PlayerInfo } from '../../types/multiplayer';
 
 interface SprintSidebarProps {
@@ -48,15 +48,23 @@ export const SprintSidebar: React.FC<SprintSidebarProps> = ({
               {/* Top Row: Rank, Avatar, Name, Score */}
               <div className="flex items-center justify-between gap-2 mb-1.5">
                 <div className="flex items-center gap-2">
-                  <span className={`w-5 text-center font-black text-xs ${isLeader ? 'text-amber-600' : 'text-gray-400'}`}>
-                    {isLeader ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
+                  <span className="w-5 flex items-center justify-center font-black text-xs">
+                    {isLeader ? (
+                      <Crown className="w-4 h-4 fill-amber-500 text-amber-500" />
+                    ) : index === 1 ? (
+                      <Medal className="w-4 h-4 text-slate-400" />
+                    ) : index === 2 ? (
+                      <Medal className="w-4 h-4 text-amber-700" />
+                    ) : (
+                      <span className="text-gray-400 font-bold">#{index + 1}</span>
+                    )}
                   </span>
                   
                   <div
-                    className="w-7 h-7 rounded-xl flex items-center justify-center text-sm font-bold text-white shadow-2xs"
+                    className="w-7 h-7 rounded-xl flex items-center justify-center text-white shadow-2xs"
                     style={{ backgroundColor: player.avatarColor || '#2D6A4F' }}
                   >
-                    {player.avatar || '🀄'}
+                    <Layers className="w-3.5 h-3.5 text-white" />
                   </div>
 
                   <div className="flex flex-col">

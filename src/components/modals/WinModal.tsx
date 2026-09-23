@@ -53,7 +53,7 @@ export const WinModal: React.FC<WinModalProps> = ({
           <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-amber-400 to-yellow-300 flex items-center justify-center shadow-lg mx-auto">
             <Trophy className="w-10 h-10 text-amber-900 fill-current" />
           </div>
-          <div className="absolute -top-2 -right-2 text-2xl animate-spin-slow">✨</div>
+          <Sparkles className="w-6 h-6 text-amber-500 absolute -top-2 -right-2 animate-bounce-short" />
         </div>
 
         <h2 className="text-3xl font-black text-vita-wood tracking-tight">Level Complete!</h2>

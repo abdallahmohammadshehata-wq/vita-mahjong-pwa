@@ -66,6 +66,8 @@ export interface MoveRecord {
 
 export type GameTheme = 'ivory' | 'sage' | 'wood' | 'dark' | 'jade' | 'gold';
 
+export type BoardBackground = 'zen-felt' | 'teak-wood' | 'midnight-silk' | 'tatami' | 'misty-mountain';
+
 export interface LevelProgress {
   levelId: number;
   unlocked: boolean;

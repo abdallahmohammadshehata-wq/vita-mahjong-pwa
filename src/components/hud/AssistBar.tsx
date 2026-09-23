@@ -7,6 +7,7 @@ interface AssistBarProps {
   undosLeft: number;
   canUndo: boolean;
   scale: number;
+  isDarkMode?: boolean;
   onHint: () => void;
   onShuffle: () => void;
   onUndo: () => void;
@@ -21,6 +22,7 @@ export const AssistBar: React.FC<AssistBarProps> = ({
   undosLeft,
   canUndo,
   scale,
+  isDarkMode = false,
   onHint,
   onShuffle,
   onUndo,
@@ -29,7 +31,7 @@ export const AssistBar: React.FC<AssistBarProps> = ({
   onResetZoom
 }) => {
   return (
-    <footer className="w-full bg-white/95 backdrop-blur-md border-t border-[#E8E1D5] px-4 py-2.5 shadow-lg sticky bottom-0 z-30 select-none pb-safe">
+    <footer className={`w-full backdrop-blur-md border-t px-4 py-2.5 shadow-lg sticky bottom-0 z-30 select-none pb-safe ${isDarkMode ? 'bg-slate-900/95 border-slate-800 text-slate-100' : 'bg-white/95 border-[#E8E1D5] text-vita-charcoal'}`}>
       <div className="max-w-xl mx-auto flex items-center justify-between gap-2">
         {/* Undo Button */}
         <button
