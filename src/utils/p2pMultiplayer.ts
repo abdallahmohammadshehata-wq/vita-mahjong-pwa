@@ -212,6 +212,11 @@ class P2PMultiplayerManager {
 
     this.broadcast('PLAYER_JOIN', { player: joinPlayer, roomId: cleanCode });
 
+    // If host responded immediately via BroadcastChannel or fast peer, use real room
+    if (this.currentRoom && this.currentRoom.roomId === cleanCode && this.currentRoom.players.some(p => p.id !== this.myPlayerId)) {
+      return this.currentRoom;
+    }
+
     const fallbackRoom: RoomState = {
       roomId: cleanCode,
       hostId: 'host-player',
@@ -224,7 +229,7 @@ class P2PMultiplayerManager {
       players: [
         {
           id: 'host-player',
-          name: 'Master Host',
+          name: 'Room Host 👑',
           avatar: '🐉',
           avatarColor: '#B91C1C',
           isHost: true,
@@ -242,9 +247,11 @@ class P2PMultiplayerManager {
       boardState: []
     };
 
-    this.currentRoom = fallbackRoom;
-    this.emit('ROOM_UPDATE', { room: fallbackRoom });
-    return fallbackRoom;
+    if (!this.currentRoom || this.currentRoom.roomId !== cleanCode) {
+      this.currentRoom = fallbackRoom;
+      this.emit('ROOM_UPDATE', { room: fallbackRoom });
+    }
+    return this.currentRoom;
   }
 
   // Add AI Bot (Host action)
