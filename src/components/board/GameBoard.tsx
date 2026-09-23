@@ -241,7 +241,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         style={{
           width: `${bounds.width}px`,
           height: `${bounds.height}px`,
-          transform: `translate(${pan.x}px, ${pan.y}px) ${is3DView ? 'rotateX(22deg) rotateZ(0deg)' : 'rotateX(0deg)'} scale(${finalScale})`,
+          transform: `translate(${pan.x}px, ${pan.y}px) scale(${finalScale}) ${is3DView ? 'rotateX(22deg)' : 'rotateX(0deg)'}`,
         }}
       >
         {board.map((tile) => (
